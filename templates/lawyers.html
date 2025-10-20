@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}All Lawyers - JuristHUB{% endblock %}
+
+{% block content %}
+
+    <header class="py-4 bg-light border-bottom">
+        <div class="container">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}" class="text-muted">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">All Lawyers</li>
+                </ol>
+            </nav>
+            <h1 class="fw-bold text-dark mt-2">Find Your Legal Expert</h1>
+            <p class="lead text-muted">A comprehensive list of all verified specialists on JuristHUB.</p>
+        </div>
+    </header>
+
+    <section class="py-4 bg-white border-bottom shadow-sm">
+        <div class="container">
+            <form action="{{ url_for('all_lawyers') }}" method="GET">
+                <div class="row g-3 align-items-center">
+
+
+
+                    <div class="col-md-3">
+                        <select name="specialty" class="form-select form-select-lg">
+                            <option value="">Filter by Specialty</option>
+                            {% for spec in unique_specialties %}
+                                <option value="{{ spec }}" {% if request.args.get('specialty') == spec %}selected{% endif %}>{{ spec }}</option>
+                            {% endfor %}
+
+                            <option value="CriminalLaw">Criminal Law</option>
+                            <option value="FamilyLaw">Family Law</option>
+                            <option value="CorporateLaw">Corporate Law</option>
+                            <option value="Real EstateLaw">RealEstate Law</option>
+                            <option value="ImmigrationLaw">Immigration Law</option>
+                            <option value="IntellectualProperty">Intellectual Property</option>
+                            <option value="CivilLitigation">Civil Litigation</option>
+                            <option value="Tax Law">TaxLaw</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <select name="sort_by" class="form-select form-select-lg">
+                            <option value="">Sort By...</option>
+
+                            <option value="price_asc" {% if request.args.get('sort_by') == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+                            <option value="price_desc" {% if request.args.get('sort_by') == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+
+                         </select>
+                    </div>
+
+                    <div class="col-md-2 text-end">
+                        <button type="submit" class="btn btn-primary btn-lg w-100">Apply Filter</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="py-5">
+        <div class="container">
+
+            <div class="row row-cols-1 g-4" id="all-lawyers-list">
+
+                {% for lawyer in all_lawyers %}
+
+                <div class="col animate__animated animate__fadeInUp">
+                    <div class="card lawyer-list-card shadow-sm h-100 p-3">
+                        <div class="row g-0 align-items-center">
+
+                            <div class="col-md-2 col-lg-1 text-center">
+                                <img src="{{ lawyer.photo_url or 'https://via.placeholder.com/150x150.png?text=Photo' }}"
+                                     class="lawyer-list-img rounded-circle object-fit-cover shadow-sm"
+                                     alt="{{ lawyer.name }}"
+                                     style="width: 80px; height: 80px;">
+                            </div>
+
+                            <div class="col-md-5 col-lg-4 p-3">
+                                <h5 class="fw-bold mb-0 text-primary">{{ lawyer.name }}</h5>
+                                <p class="mb-1 text-muted small">{{ lawyer.specialization }}</p>
+                                <div class="text-warning small">
+                                    <i class="fas fa-star"></i> {{ lawyer.rating or 'N/A' }} ({{ lawyer.reviews_count or 0 }} Reviews)
+                                </div>
+                            </div>
+
+                            <div class="col-md-3 col-lg-3 p-3 d-none d-md-block">
+                                <p class="mb-1 text-dark fw-bold">
+                                    <i class="fas fa-dollar-sign me-1 text-success"></i> ${{ lawyer.price }}/Hour
+                                </p>
+                                <p class="mb-0 text-muted small">
+                                    <i class="fas fa-map-marker-alt me-1 text-info"></i> {{ lawyer.city or 'Online only' }}
+                                </p>
+                            </div>
+
+                            <div class="col-md-2 col-lg-4 text-center text-lg-end p-3">
+                                <a href="/book/{{ lawyer.id }}" class="btn btn-warning fw-bold w-75">
+                                    Book Now <i class="fas fa-calendar-alt ms-1"></i>
+                                </a>
+                                <a href="/lawyer/{{ lawyer.id }}" class="btn btn-link text-muted mt-2 d-block d-lg-inline-block">
+                                    View Profile
+                                </a>
+                            </div>
+
+                        </div>
+                    </div>
+                    </div>
+
+                {% else %}
+                <div class="col-12 text-center p-5 text-muted">
+                    <p>No lawyers matched your criteria. Try adjusting your filters.</p>
+                </div>
+                {% endfor %}
+
+            </div>
+
+            <div class="mt-5 text-center">
+                <nav aria-label="Page navigation example">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item disabled"><a class="page-link" href="#">Previous</a></li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item"><a class="page-link" href="#">Next</a></li>
+                    </ul>
+                </nav>
+            </div>
+
+        </div>
+    </section>
+
+{% endblock %}

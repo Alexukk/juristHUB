@@ -1,38 +1,89 @@
 {% extends "base.html" %}
 
-{% block title %}Home - JuristHUB{% endblock %}
+{% block title %}Home - JuristHUB - Expert Legal Consultations{% endblock %}
 
 {% block content %}
 
-    <section class="guarantees-section text-center">
-        <div class="container">
-            <h2 class="mb-5 text-dark">Why Choose Us?</h2>
+    <header class="hero-banner mb-5 position-relative overflow-hidden">
+        <div class="container py-5 py-lg-6 z-1">
+            <div class="row align-items-center">
+                <div class="col-lg-7 text-start">
+                    <h1 class="display-3 fw-bold animate__animated animate__fadeInDown">
+                        Legal Clarity, Just a Click Away.
+                    </h1>
+                    <p class="lead mt-3 mb-4 animate__animated animate__fadeInUp animate__delay-1s">
+                        Connect with **vetted specialists** across all areas of law. Solve your legal queries efficiently and confidently.
+                    </p>
+                    <a href="#lawyers-section" class="btn btn-lg btn-warning fw-bold shadow-lg animate__animated animate__zoomIn animate__delay-2s">
+                        Meet Our Leading Experts <i class="fas fa-arrow-down ms-2"></i>
+                    </a>
+                </div>
+
+                <div class="col-lg-5 d-none d-lg-block text-end">
+                    <i class="fas fa-balance-scale fa-10x"></i>
+                </div>
             </div>
+        </div>
+    </header>
+
+    <section class="guarantees-section text-center py-5">
+        <div class="container">
+            <h2 class="mb-5 fw-bold text-dark animate__animated animate__fadeInUp">Why JuristHUB is Your Best Choice</h2>
+            <div class="row">
+                <div class="col-md-4 mb-4 animate__animated animate__flipInY">
+                    <div class="card p-4 h-100 guarantee-card border-0 shadow-sm">
+                        <i class="fas fa-graduation-cap fa-3x mb-3"></i>
+                        <h4 class="card-title fw-bold">Vetted Experts</h4>
+                        <p class="card-text text-muted">Access top-tier lawyers with verified credentials and proven track records.</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4 animate__animated animate__flipInY animate__delay-1s">
+                    <div class="card p-4 h-100 guarantee-card border-0 shadow-sm">
+                        <i class="fas fa-hand-holding-usd fa-3x mb-3"></i>
+                        <h4 class="card-title fw-bold">Clear Pricing</h4>
+                        <p class="card-text text-muted">No hidden fees. Pay only for the consultation time you need.</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4 animate__animated animate__flipInY animate__delay-2s">
+                    <div class="card p-4 h-100 guarantee-card border-0 shadow-sm">
+                        <i class="fas fa-calendar-check fa-3x mb-3"></i>
+                        <h4 class="card-title fw-bold">Instant Booking</h4>
+                        <p class="card-text text-muted">Schedule your meeting immediately at a time that works for you.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </section>
 
-    <section class="py-5 bg-light">
+    <hr class="my-0">
+
+    <section class="py-5 bg-light" id="lawyers-section">
         <div class="container">
-            <h2 class="text-center mb-5 text-dark">Our Leading Lawyers</h2>
+            <h2 class="text-center mb-5 fw-bold text-dark animate__animated animate__fadeInUp">Our Leading Lawyers</h2>
 
             <div class="row" id="lawyers-container-row">
 
                 {% for lawyer in lawyers %}
-                <div class="col-12 col-sm-6 col-lg-4 mb-4">
-                    <div class="card lawyer-card h-100 lawyer-card-animated">
+                <div class="col-12 col-sm-6 col-lg-4 mb-4 animate__animated animate__fadeInUp">
+                    <div class="card lawyer-card h-100 shadow-sm">
 
                         <img src="{{ lawyer.photo_url or 'https://via.placeholder.com/400x300.png?text=Photo' }}"
-                             class="card-img-top"
+                             class="card-img-top object-fit-cover"
+                             style="height: 250px;"
                              alt="{{ lawyer.name }} photo">
 
                         <div class="card-body d-flex flex-column">
-
-                            <h5 class="card-title">{{ lawyer.name }}</h5>
-                            <hr>
+                            <h5 class="card-title fw-bold">{{ lawyer.name }}</h5>
                             <h6 class="card-subtitle mb-2 text-primary">{{ lawyer.specialization }}</h6>
 
-                            <p class="card-text text-muted">{{ lawyer.description }}</p>
-                            <hr>
-                            <a href="/book/{{ lawyer.id }}" class="btn btn-success btn-consult-card mt-auto">
+                            <small class="text-muted mb-2">
+                                <i class="fas fa-briefcase me-1"></i> {{ lawyer.experience }} Years
+                                | <i class="fas fa-dollar-sign ms-1"></i> {{ lawyer.price }} / Hr
+                            </small>
+
+                            <p class="card-text text-muted flex-grow-1">{{ lawyer.description }}</p>
+
+                            <a href="/book/{{ lawyer.id }}" class="btn btn-warning fw-bold mt-auto btn-consult-card">
                                 Book Consultation
                             </a>
                         </div>
@@ -40,11 +91,26 @@
                 </div>
                 {% else %}
                 <div class="col-12 text-center p-5 text-muted">
-                    <p>There are no Lawyers pinned on this page yet.</p>
+                    <p>There are no Lawyers pinned on this page.</p>
                 </div>
                 {% endfor %}
 
             </div>
+            </div>
+    </section>
+
+    <section class="py-5 text-center bg-dark text-white">
+        <div class="container">
+            <h2 class="mb-4 fw-bold">Still searching for the perfect match?</h2>
+            <p class="lead mb-4">Explore our full network of specialists across all legal fields.</p>
+
+            <a class="fancy" href="{{ url_for('all_lawyers') }}">
+                <span class="top-key"></span>
+                <span class="text">View All 50+ Lawyers</span>
+                <span class="bottom-key-1"></span>
+                <span class="bottom-key-2"></span>
+            </a>
+
         </div>
     </section>
 

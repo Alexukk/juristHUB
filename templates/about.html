@@ -70,14 +70,18 @@
         </div>
     </section>
 
-    <section class="py-5 text-center bg-dark text-white">
-        <div class="container">
-            <h2 class="mb-3">Ready to find your expert?</h2>
-            <a href="{{ url_for('index') }}" class="btn btn-lg btn-light">
-                Start Your Consultation Now
-            </a>
+   <section class="py-5 text-center bg-dark text-white">
+    <div class="container">
+        <h2 class="mb-4">Ready to find your expert?</h2>
+
+        <a class="fancy" href="{{ url_for('all_lawyers') }}">
+            <span class="top-key"></span>
+            <span class="text">Get Consultation</span>
+            <span class="bottom-key-1"></span>
+            <span class="bottom-key-2"></span>
+        </a>
         </div>
-    </section>
+</section>
 <hr>
 
 {% endblock %}

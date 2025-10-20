@@ -1,22 +1,36 @@
-/* static/css/styles.css */
+/* static/css/styles.css - Переработанная сине-серая палитра */
 
-/* Импорт Google Fonts для современного вида */
+/* Цветовая палитра:
+   - Primary (Темно-синий): #003366
+   - Secondary (Умеренный синий): #0056b3 (для акцентов)
+   - Background (Светло-серый): #f4f7f9
+   - Border/Detail (Серый): #dee2ee
+*/
+
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap'); /* Добавляем Lato для заголовков */
+
 
 /* --- ОБЩИЕ СТИЛИ --- */
 body {
     font-family: 'Roboto', sans-serif;
-    padding-top: 70px; /* Сдвиг контента вниз */
-    background-color: #f8f9fa; /* Очень светло-серый (Bootstrap body background) */
+    padding-top: 70px;
+    background-color: #f4f7f9; /* Новый, более спокойный светло-серый фон */
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
-/* --- НАВИГАЦИОННАЯ ПАНЕЛЬ --- */
+h1, h2, h3 {
+    font-family: 'Lato', sans-serif;
+    font-weight: 700;
+}
+
+
+/* --- 1. НАВИГАЦИОННАЯ ПАНЕЛЬ --- */
 .navbar {
     background-color: #003366 !important; /* Глубокий Темно-синий */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
 }
 
 .navbar-brand, .nav-link {
@@ -25,139 +39,151 @@ body {
     transition: color 0.3s ease;
 }
 
-.navbar-brand:hover, .nav-link:hover {
-    color: #a4c0db !important; /* Светло-голубой/серый при наведении */
+.nav-link:hover {
+    color: #a4c0db !important; /* Светлый сине-серый при наведении */
 }
 
 /* Кнопки авторизации */
 .btn-outline-light {
-    border-color: #ffffff;
+    border-color: #a4c0db;
     color: #ffffff;
-    transition: all 0.3s ease;
 }
-
 .btn-outline-light:hover {
-    background-color: #f8f9fa;
-    color: #003366; /* Темно-синий текст при наведении */
+    background-color: #0056b3; /* Умеренный синий при наведении */
+    color: #ffffff;
+    border-color: #0056b3;
 }
 .btn-light {
-    background-color: #d1d5db; /* Светло-серый фон для кнопки регистрации */
+    background-color: #a4c0db; /* Светло-сине-серый для кнопки */
     color: #003366;
 }
 .btn-light:hover {
-    background-color: #e9ecef;
-    color: #003366;
+    background-color: #c4d7e8;
 }
 
 
-/* --- СЕКЦИЯ 1: БАННЕР HERO --- */
+/* --- 2. СЕКЦИЯ HERO (с анимацией) --- */
 .hero-banner {
-    background: linear-gradient(rgba(0, 51, 102, 0.9), rgba(0, 51, 102, 0.9));
-    background-size: cover;
-    background-position: center;
+    /* Градиент от глубокого синего до умеренного синего */
+    background: linear-gradient(145deg, #003366 0%, #0056b3 100%);
     color: #ffffff;
     padding: 100px 0;
-    text-align: center;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    text-align: left; /* Текст слева, как в новом шаблоне */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
 }
 
-/* Кнопка на баннере: белая в спокойном состоянии, синяя при наведении */
-.btn-hero {
-    background-color: #ffffff; /* Белая */
-    color: #003366; /* Темно-синий текст */
-    border: 2px solid #ffffff;
+/* Иконка весов в углу */
+.hero-banner .fa-balance-scale {
+    color: #ffffff;
+    opacity: 0.15; /* Очень прозрачный, как фоновый элемент */
+    position: absolute;
+    right: -50px;
+    top: 50px;
+    transform: rotate(15deg);
+}
+
+/* Кнопка на баннере: Акцентный оранжевый/желтый (для контраста с синим фоном) */
+.btn-warning {
+    background-color: #ffc107; /* Желтый */
+    color: #003366;
+    border: none;
     font-size: 1.25rem;
     padding: 10px 30px;
     transition: all 0.3s ease;
     font-weight: 700;
 }
 
-.btn-hero:hover {
-    background-color: #0056b3; /* Классический синий при наведении */
-    color: #ffffff;
-    border-color: #0056b3;
-    transform: translateY(-3px); /* Чуть большее поднятие */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+.btn-warning:hover {
+    background-color: #e0a800;
+    color: #003366;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
 }
 
 
-/* --- СЕКЦИЯ 2: ГАРАНТИИ --- */
+/* --- 3. СЕКЦИЯ ГАРАНТИЙ --- */
 .guarantees-section {
     padding: 60px 0;
     background-color: #ffffff;
 }
 
 .guarantee-card {
-    border: 1px solid #dee2e6; /* Легкая серая рамка */
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    transition: transform 0.4s ease;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
 }
 
 .guarantee-card:hover {
-    transform: translateY(-7px); /* Заметное поднятие */
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 /* Цвет иконок гарантий */
 .guarantee-card .fa-3x {
-    color: #003366; /* Темно-синий для иконок */
+    color: #0056b3; /* Умеренный синий для акцента */
 }
 
 
-/* --- СЕКЦИЯ 3: КАРУСЕЛЬ АДВОКАТОВ --- */
+/* --- 4. СЕКЦИЯ ЮРИСТОВ --- */
 .lawyer-card {
-    border: none;
+    border: 1px solid #dee2e6;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
     transition: all 0.4s ease;
     height: 100%;
+    background-color: #ffffff;
 }
 
 .lawyer-card:hover {
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02); /* Более заметное масштабирование */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
 
-/* Анимация "Плывущие" карточки */
-@keyframes slight-move {
-    0% { transform: translateY(0); }
-    50% { transform: translateY(-4px); } /* Чуть более заметное движение */
-    100% { transform: translateY(0); }
-}
-
-.lawyer-card-animated {
-    animation: slight-move 6s ease-in-out infinite;
+/* Изображения юристов */
+.lawyer-card img.card-img-top {
+    object-fit: cover;
+    height: 250px;
 }
 
 /* Стилизация заголовков и подзаголовков в карточке */
 .lawyer-card .card-subtitle {
-    color: #0056b3 !important; /* Более яркий синий для специализации */
+    color: #0056b3 !important; /* Умеренный синий для специализации */
     font-weight: 500;
 }
 
-/* Кнопка записи в карточке (Success - зеленый) */
-.btn-success {
-    background-color: #28a745; /* Стандартный зеленый */
-    border-color: #28a745;
-    transition: background-color 0.3s ease;
+.lawyer-card .card-body small.text-muted {
+    color: #6c757d !important; /* Серый для доп. информации */
 }
 
-.btn-success:hover {
-    background-color: #1e7e34; /* Темно-зеленый при наведении */
-    border-color: #1e7e34;
+/* Кнопка записи в карточке - Используем .btn-warning для единообразия */
+.lawyer-card .btn-consult-card {
+    background-color: #ffc107;
+    color: #003366;
+    border: none;
+    font-weight: 700;
 }
 
+.lawyer-card .btn-consult-card:hover {
+    background-color: #e0a800;
+    color: #003366;
+}
 
-/* --- ФУТЕР --- */
+/* --- 5. ФУТЕР --- */
 .footer {
-    background-color: #343a40; /* Темно-серый */
-    color: #e9ecef; /* Светло-серый текст */
-    padding: 20px 0;
+    background-color: #343a40;
+    color: #e9ecef;
+    padding: 25px 0;
     text-align: center;
     font-size: 0.9rem;
     margin-top: auto;
 }
 
 .footer a {
-    color: #a4c0db; /* Светлый синий/серый для ссылки GitHub */
+    color: #a4c0db;
     text-decoration: none;
     transition: color 0.3s ease;
 }
@@ -166,3 +192,105 @@ body {
     color: #ffffff;
     text-decoration: underline;
 }
+
+/* --- 6. Стили для fancy-кнопки (Call to Action) --- */
+
+.fancy {
+    /* Темно-синий фон */
+    background-color: transparent;
+    border: 2px solid #0056b3;
+    border-radius: 0;
+    box-sizing: border-box;
+    color: #0056b3; /* Основной цвет текста */
+    cursor: pointer;
+    display: inline-block;
+    float: none;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin: 0;
+    outline: none;
+    overflow: visible;
+    padding: 1.25em 2em;
+    position: relative;
+    text-align: center;
+    text-decoration: none;
+    text-transform: none;
+    transition: all 0.3s ease-in-out;
+    user-select: none;
+    font-size: 13px;
+}
+
+.fancy::before {
+    content: " ";
+    width: 1.5625rem;
+    height: 2px;
+    background: #0056b3;
+    top: 50%;
+    left: 1.5em;
+    position: absolute;
+    transform: translateY(-50%);
+    transform-origin: center;
+    transition: background 0.3s linear, width 0.3s linear;
+}
+
+.fancy .text {
+    font-size: 1.125em;
+    line-height: 1.33333em;
+    padding-left: 2em;
+    display: block;
+    text-align: left;
+    transition: all 0.3s ease-in-out;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: #0056b3; /* Основной цвет текста */
+}
+
+/* Ключи будут светлыми, чтобы их было видно на темном фоне */
+.fancy .top-key, .fancy .bottom-key-1, .fancy .bottom-key-2 {
+    height: 2px;
+    position: absolute;
+    background: #dee2e6; /* Светло-серый, чтобы был виден */
+    transition: width 0.5s ease-out, left 0.3s ease-out, right 0.3s ease-out;
+}
+
+.fancy .top-key {
+    width: 1.5625rem;
+    top: -2px;
+    left: 0.625rem;
+}
+
+.fancy .bottom-key-1 {
+    width: 1.5625rem;
+    right: 1.875rem;
+    bottom: -2px;
+}
+
+.fancy .bottom-key-2 {
+    width: 0.625rem;
+    right: 0.625rem;
+    bottom: -2px;
+}
+
+.fancy:hover {
+    color: white;
+    background: #0056b3; /* Умеренный синий при наведении */
+}
+
+.fancy:hover::before {
+    width: 0.9375rem;
+    background: white;
+}
+
+.fancy:hover .text {
+    color: white;
+    padding-left: 1.5em;
+}
+
+.fancy:hover .top-key,
+.fancy:hover .bottom-key-1,
+.fancy:hover .bottom-key-2 {
+    right: 0;
+    width: 0;
+    left: -2px;
+}
+
