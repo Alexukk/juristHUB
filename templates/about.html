@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}About Us - JuristHUB{% endblock %}
+
+{% block content %}
+
+    <header class="py-5 bg-primary text-white">
+        <div class="container text-center">
+            <h1 class="display-3 fw-bold">Connecting You with Legal Excellence</h1>
+            <p class="lead mt-3">Your trusted platform for fast, reliable, and professional legal consultations.</p>
+        </div>
+    </header>
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <h2 class="fw-bold text-dark mb-4">Our Mission</h2>
+                    <p class="fs-5 text-muted">
+                        At JuristHUB, our mission is to break down the barriers between individuals and high-quality legal help.
+                        We believe that everyone deserves access to expert advice, regardless of their location or complexity of their issue.
+                    </p>
+                    <p class="fs-5 text-muted">
+                        We achieve this by meticulously vetting every lawyer on our platform, ensuring they meet the highest standards of professionalism and experience.
+                    </p>
+                </div>
+               <div class="col-lg-6">
+    <div style="height: 300px; width: 100%;">
+        <img src="{{ url_for('static', filename='img/aboutUs.png') }}"
+             alt="Justice scales and gavel in a modern law office"
+             class="img-fluid rounded shadow-sm object-fit-cover w-100 h-100"
+        >
+    </div>
+</div>
+            </div>
+        </div>
+    </section>
+
+    <hr class="my-0">
+
+    <section class="py-5 bg-light">
+        <div class="container">
+            <h2 class="fw-bold text-center mb-5 text-dark">Why JuristHUB Stands Out</h2>
+            <div class="row text-center">
+
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 p-4 shadow-sm border-0">
+                        <i class="fas fa-search-dollar fa-3x text-info mb-3"></i>
+                        <h4 class="card-title fw-bold">Transparency</h4>
+                        <p class="card-text text-muted">Clear, upfront pricing and honest lawyer profiles with verified specializations.</p>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 p-4 shadow-sm border-0">
+                        <i class="fas fa-user-shield fa-3x text-success mb-3"></i>
+                        <h4 class="card-title fw-bold">Security & Privacy</h4>
+                        <p class="card-text text-muted">Your sensitive legal matters are protected with industry-leading encryption and strict confidentiality policies.</p>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 p-4 shadow-sm border-0">
+                        <i class="fas fa-users fa-3x text-warning mb-3"></i>
+                        <h4 class="card-title fw-bold">Vast Expertise</h4>
+                        <p class="card-text text-muted">A comprehensive network of legal minds covering nearly every area of law.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-5 text-center bg-dark text-white">
+        <div class="container">
+            <h2 class="mb-3">Ready to find your expert?</h2>
+            <a href="{{ url_for('index') }}" class="btn btn-lg btn-light">
+                Start Your Consultation Now
+            </a>
+        </div>
+    </section>
+<hr>
+
+{% endblock %}

@@ -1,0 +1,168 @@
+/* static/css/styles.css */
+
+/* Импорт Google Fonts для современного вида */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
+/* --- ОБЩИЕ СТИЛИ --- */
+body {
+    font-family: 'Roboto', sans-serif;
+    padding-top: 70px; /* Сдвиг контента вниз */
+    background-color: #f8f9fa; /* Очень светло-серый (Bootstrap body background) */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- НАВИГАЦИОННАЯ ПАНЕЛЬ --- */
+.navbar {
+    background-color: #003366 !important; /* Глубокий Темно-синий */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.navbar-brand, .nav-link {
+    color: #ffffff !important;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.navbar-brand:hover, .nav-link:hover {
+    color: #a4c0db !important; /* Светло-голубой/серый при наведении */
+}
+
+/* Кнопки авторизации */
+.btn-outline-light {
+    border-color: #ffffff;
+    color: #ffffff;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-light:hover {
+    background-color: #f8f9fa;
+    color: #003366; /* Темно-синий текст при наведении */
+}
+.btn-light {
+    background-color: #d1d5db; /* Светло-серый фон для кнопки регистрации */
+    color: #003366;
+}
+.btn-light:hover {
+    background-color: #e9ecef;
+    color: #003366;
+}
+
+
+/* --- СЕКЦИЯ 1: БАННЕР HERO --- */
+.hero-banner {
+    background: linear-gradient(rgba(0, 51, 102, 0.9), rgba(0, 51, 102, 0.9));
+    background-size: cover;
+    background-position: center;
+    color: #ffffff;
+    padding: 100px 0;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Кнопка на баннере: белая в спокойном состоянии, синяя при наведении */
+.btn-hero {
+    background-color: #ffffff; /* Белая */
+    color: #003366; /* Темно-синий текст */
+    border: 2px solid #ffffff;
+    font-size: 1.25rem;
+    padding: 10px 30px;
+    transition: all 0.3s ease;
+    font-weight: 700;
+}
+
+.btn-hero:hover {
+    background-color: #0056b3; /* Классический синий при наведении */
+    color: #ffffff;
+    border-color: #0056b3;
+    transform: translateY(-3px); /* Чуть большее поднятие */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+
+/* --- СЕКЦИЯ 2: ГАРАНТИИ --- */
+.guarantees-section {
+    padding: 60px 0;
+    background-color: #ffffff;
+}
+
+.guarantee-card {
+    border: 1px solid #dee2e6; /* Легкая серая рамка */
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.4s ease;
+}
+
+.guarantee-card:hover {
+    transform: translateY(-7px); /* Заметное поднятие */
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Цвет иконок гарантий */
+.guarantee-card .fa-3x {
+    color: #003366; /* Темно-синий для иконок */
+}
+
+
+/* --- СЕКЦИЯ 3: КАРУСЕЛЬ АДВОКАТОВ --- */
+.lawyer-card {
+    border: none;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    transition: all 0.4s ease;
+    height: 100%;
+}
+
+.lawyer-card:hover {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Анимация "Плывущие" карточки */
+@keyframes slight-move {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-4px); } /* Чуть более заметное движение */
+    100% { transform: translateY(0); }
+}
+
+.lawyer-card-animated {
+    animation: slight-move 6s ease-in-out infinite;
+}
+
+/* Стилизация заголовков и подзаголовков в карточке */
+.lawyer-card .card-subtitle {
+    color: #0056b3 !important; /* Более яркий синий для специализации */
+    font-weight: 500;
+}
+
+/* Кнопка записи в карточке (Success - зеленый) */
+.btn-success {
+    background-color: #28a745; /* Стандартный зеленый */
+    border-color: #28a745;
+    transition: background-color 0.3s ease;
+}
+
+.btn-success:hover {
+    background-color: #1e7e34; /* Темно-зеленый при наведении */
+    border-color: #1e7e34;
+}
+
+
+/* --- ФУТЕР --- */
+.footer {
+    background-color: #343a40; /* Темно-серый */
+    color: #e9ecef; /* Светло-серый текст */
+    padding: 20px 0;
+    text-align: center;
+    font-size: 0.9rem;
+    margin-top: auto;
+}
+
+.footer a {
+    color: #a4c0db; /* Светлый синий/серый для ссылки GitHub */
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.footer a:hover {
+    color: #ffffff;
+    text-decoration: underline;
+}
