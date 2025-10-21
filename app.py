@@ -108,17 +108,26 @@ def admin_panel():
 
     return "Admin Panel - Coming Soon"
 
-@app.route('/lawyer/<int:lawyer_id>/panel')
+
+from flask import render_template, abort
+
+
+@app.route('/lawyer/panel/<int:lawyer_id>')
 def lawyer_panel(lawyer_id):
-
-    return f"Lawyer Panel for ID: {lawyer_id}"
-
+    query = db.select(Lawyer).filter(Lawyer.id == lawyer_id)
+    lawyer = db.session.execute(query).scalar_one_or_none()
+    if lawyer is None:
+        abort(404)
+    return render_template("lawyer_page.html", lawyer=lawyer)
 @app.route('/client/<int:client_id>/panel')
 def client_panel(client_id):
 
     return f"Client Panel for ID: {client_id}"
 
 
+@app.route("/book-consultation/<int:lawyer_id>")
+def book_consultation(lawyer_id):
+    pass
 with app.app_context():
     db.create_all()
 
