@@ -1,137 +1,156 @@
+from os import execle
 from flask import Flask, redirect, render_template, request, session, url_for, flash, jsonify
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
-from config import app
-from config import db
-from models import *
+from config import app, db
+from models import User
 from sqlalchemy import select
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
 
-# MAIN ROUTES LOGIC
 @app.route('/')
 def index():
+    print("ROUTE: Accessing index page.")
     try:
-        query = db.select(Lawyer).filter(Lawyer.isOnMain == True)
+        query = db.select(User).filter(User.isOnMain == True)
         lawyers_objects = db.session.execute(query).scalars().all()
-
-        # 1. Получаем ЧИСТЫЙ список словарей
         lawyers_data = [lawyer.to_dict() for lawyer in lawyers_objects]
 
-        print("✅ Lawyers loaded successfully for SSR")
-
-        # 2. ПРАВИЛЬНО: Передаем ЧИСТЫЙ список 'lawyers_data' в шаблон.
-        #     jsonify() НЕ используется!
+        print(f"✅ Lawyers loaded successfully for SSR: {len(lawyers_data)} records.")
         return render_template("index.html", lawyers=lawyers_data)
 
     except Exception as e:
-        print(f"❌ An error occurred while loading lawyers for SSR: ", e)
-        # В случае ошибки передаем пустой список, чтобы не сломать шаблон Jinja
+        print(f"❌ ERROR in index route while loading lawyers: {e}")
         return render_template("index.html", lawyers=[])
-
-
 
 
 @app.route('/about')
 def about():
-    return  render_template("about.html")
-
+    print("ROUTE: Accessing about page.")
+    return render_template("about.html")
 
 
 @app.route('/lawyers')
 def all_lawyers():
-
+    print("ROUTE: Accessing all_lawyers page.")
     return render_template('lawyers.html')
 
-# API LOGIC
 
-
-@app.route('/api/get-main-lawyers')
-def get_main_lawyers():
-    try:
-        query = db.select(Lawyer).filter(Lawyer.isOnMain == True)
-        lawyers_objects = db.session.execute(query).scalars().all()
-
-        lawyers_data = [lawyer.to_dict() for lawyer in lawyers_objects]
-        print("Lawyers loaded successfully")
-        return jsonify(lawyers=lawyers_data)
-    except Exception as e:
-        print(f"An error while loading lawyers: ", e)
-        return jsonify(lawyers=[])
-
-
-# login/register routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
+        print("ROUTE: Rendering login form (GET).")
         return render_template('login.html')
 
     email = request.form.get('email')
     password = request.form.get('password')
 
+    print(f"ROUTE: Attempting login for email: {email}")
+
     if not email or not password:
+        print("FAIL: Missing email or password.")
         flash('Please enter both email and password.', 'danger')
         return redirect(url_for('login'))
 
-    lawyer = db.session.execute(
-        select(Lawyer).filter_by(email=email, password=password)
-    ).scalar_one_or_none()
+    user = db.session.execute(select(User).filter_by(email=email)).scalar_one_or_none()
 
-    user = lawyer
+    if user and check_password_hash(user.password_hash, password):
 
-    if user:
+        print(f"SUCCESS: User {user.fullname} authenticated. Status: {user.status}")
 
+        session['username'] = user.fullname
+        session['email'] = user.email
+        session['status'] = user.status
         session['user_id'] = user.id
-        session['user_status'] = user.status
-        session['username'] = user.username
 
-        flash(f'Welcome, {user.username}!', 'success')
+
+        flash(f'Welcome back, {user.fullname}!', 'success')
 
         if user.status == 'Admin':
-            return redirect(url_for('adminPanel'))
-        elif user.status == 'Lawyer':
-            return redirect(url_for('LawyerPanel', lawyerId=user.id))
-        else:
-            return redirect(url_for('ClientPanel', clientId=user.id))
+            return redirect(url_for('admin_panel'))
+        return redirect(f"/user/dashboard/{user.id}")
+
     else:
+        print("FAIL: Invalid credentials (user not found or password mismatch).")
         flash('Invalid email or password.', 'danger')
         return redirect(url_for('login'))
 
 
-# panels logic
+@app.route('/sign-up', methods=["GET", "POST"])
+def sign_up():
+    if request.method == 'GET':
+        print("ROUTE: Rendering sign-up form (GET).")
+        return render_template('sign_up.html')
+
+    fullname = request.form.get("username")
+    email = request.form.get("email")
+    password = request.form.get("password")
+
+    print(f"ROUTE: Attempting sign-up for email: {email}")
+
+    if not fullname or not email or not password:
+        print("FAIL: Missing required sign-up data.")
+        flash('Please enter all needed data.', 'danger')
+        return redirect(url_for('sign_up'))
+
+    user = db.session.execute(select(User).filter_by(email=email)).scalar_one_or_none()
+
+    if user is not None:
+        print("FAIL: Email already in use.")
+        flash("This email is already used! Try logging in.", 'danger')
+        return redirect(url_for('sign_up'))
+    else:
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+
+        new_user = User(
+            fullname=fullname,
+            email=email,
+            status='Client',
+            password_hash=hashed_password,
+            isOnMain=False
+        )
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+
+            print(f"SUCCESS: New user created with ID: {new_user.id}")
+
+        except Exception as e:
+            print(f"❌ CRITICAL DB ERROR during sign-up: {e}")
+            db.session.rollback()
+            flash(f'An error occurred: {e}', 'danger')
+            return redirect(url_for('sign_up'))
+
+        session['username'] = fullname
+        session['email'] = email
+        session['status'] = new_user.status
+        session['user_id'] = new_user.id
+
+        flash("Registration successful and logged in!", 'success')
+
+        return redirect(f"/user/dashboard/{new_user.id}")
+
 
 @app.route('/admin')
 def admin_panel():
-
+    print("ROUTE: Accessing admin_panel.")
     return "Admin Panel - Coming Soon"
 
 
-from flask import render_template, abort
+@app.route('/user/dashboard/<int:user_id>')
+def user_dashboard(user_id):
+    print(f"ROUTE: Accessing user dashboard for ID: {user_id}")
+    return f"Welcome to your dashboard, user {user_id}!"
 
 
-@app.route('/lawyer/panel/<int:lawyer_id>')
-def lawyer_panel(lawyer_id):
-    query = db.select(Lawyer).filter(Lawyer.id == lawyer_id)
-    lawyer = db.session.execute(query).scalar_one_or_none()
-    if lawyer is None:
-        abort(404)
-    return render_template("lawyer_page.html", lawyer=lawyer)
-@app.route('/client/<int:client_id>/panel')
-def client_panel(client_id):
-
-    return f"Client Panel for ID: {client_id}"
-
-
-@app.route("/book-consultation/<int:lawyer_id>")
-def book_consultation(lawyer_id):
-    pass
 with app.app_context():
     db.create_all()
-
-
+    print("DB check: db.create_all() executed.")
 
 if __name__ == '__main__':
     app.run(debug=True)
