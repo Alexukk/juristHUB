@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Login - JuristHUB{% endblock %}
+
+{% block content %}
+
+    <header class="py-5 bg-light border-bottom">
+        <div class="container text-center">
+            <h1 class="fw-bold text-dark">Come back soon!</h1>
+            <p class="lead text-muted">After logging out you will not be able to book or see your consultations, you will have to log in again.</p>
+        </div>
+    </header>
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+
+                <div class="col-md-6 col-lg-5">
+
+                    <div class="card shadow-lg p-4 login-card animate__animated animate__fadeInUp">
+                        <div class="card-body">
+
+                            <h3 class="card-title text-center fw-bold mb-4 text-primary">Log In to JuristHUB</h3>
+
+                            <form method="POST" action="{{ url_for('logout') }}">
+
+                                <button type="submit" class="btn btn-danger btn-lg w-100 fw-bold shadow-sm">
+                                    Logout
+                                </button>
+                                <hr>
+                                <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">Back to main</a>
+                            </form>
+                            <hr class="my-4">
+
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+{% endblock %}

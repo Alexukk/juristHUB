@@ -8,7 +8,7 @@ import os
 load_dotenv()
 
 app = Flask(__name__)
-app.permanent_session_lifetime = timedelta(hours=1)
+app.permanent_session_lifetime = timedelta(weeks=4)
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///JuristHUB.db'
 db = SQLAlchemy(app)

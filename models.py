@@ -10,6 +10,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(40), nullable=False, default='Client')  # 'Client', 'Lawyer', 'Admin'
 
+    # Rows for lawyers
 
     experience = db.Column(db.String(120), nullable=True)
     specialization = db.Column(db.String(120), nullable=True)
@@ -17,6 +18,10 @@ class User(db.Model):
     description = db.Column(db.String(500), nullable=True)
     photo_url = db.Column(db.String(255), nullable=True)
     isOnMain = db.Column(db.Boolean, nullable=True, default=False)
+
+    # Rows for admin
+
+    isAdmin = db.Column(db.Boolean, nullable=True, default=False)
 
 
     def to_dict(self):

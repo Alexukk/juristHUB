@@ -8,8 +8,22 @@ from config import app, db
 from models import User
 from sqlalchemy import select
 from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 load_dotenv()
+
+
+def login_required(f):
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('You must be logged in to view this page.', 'danger')
+            return redirect(url_for('login', next=request.url))
+
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 @app.route('/')
@@ -137,16 +151,27 @@ def sign_up():
 
 
 @app.route('/admin')
+@login_required
 def admin_panel():
     print("ROUTE: Accessing admin_panel.")
     return "Admin Panel - Coming Soon"
 
 
 @app.route('/user/dashboard/<int:user_id>')
+@login_required
 def user_dashboard(user_id):
     print(f"ROUTE: Accessing user dashboard for ID: {user_id}")
     return f"Welcome to your dashboard, user {user_id}!"
 
+@app.route('/logout', methods=['POST', 'GET'])
+@login_required
+def logout():
+    if request.method == 'POST':
+        session.clear()
+        flash("Logged out successfully!", 'primary')
+        return redirect(url_for('login'))
+
+    return render_template('logout.html')
 
 with app.app_context():
     db.create_all()
