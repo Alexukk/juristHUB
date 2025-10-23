@@ -160,8 +160,44 @@ def admin_panel():
 @app.route('/user/dashboard/<int:user_id>')
 @login_required
 def user_dashboard(user_id):
-    print(f"ROUTE: Accessing user dashboard for ID: {user_id}")
-    return f"Welcome to your dashboard, user {user_id}!"
+    if session.get('user_id') != user_id:
+        flash('Access denied. You can only view your own profile.', 'danger')
+        return redirect(url_for('index'))
+
+    upcoming_meetings = [
+        {
+            'lawyer_name': 'Dr. Alan Smith (Tax Law)',
+            'date': '2025-11-05',
+            'time': '14:00',
+            'is_paid': True,
+            'id': 101
+        },
+        {
+            'lawyer_name': 'Ms. Jane Doe (Family Law)',
+            'date': '2025-10-30',
+            'time': '10:30',
+            'is_paid': False,
+            'id': 102
+        }
+    ]
+
+    completed_meetings = [
+        {
+            'lawyer_name': 'Mr. Bob Johnson (Real Estate)',
+            'date': '2025-09-15',
+            'time': '11:00',
+            'id': 95
+        }
+    ]
+
+    return render_template(
+        'user_dashboard.html',
+        upcoming_meetings=upcoming_meetings,
+        completed_meetings=completed_meetings,
+        user_balance=50
+    )
+
+
 
 @app.route('/logout', methods=['POST', 'GET'])
 @login_required
