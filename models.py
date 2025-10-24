@@ -73,11 +73,19 @@ class Review(db.Model):
     lawyer = db.relationship('User', foreign_keys=[lawyer_user_id], back_populates='reviews_received')
 
     def to_dict(self):
+        client_name = self.client.fullname if self.client else 'Unknown Client'
+        lawyer_info = ""
+        if self.lawyer:
+            # Форматируем имя юриста (например: Dr. Alan Smith (Tax Law))
+            lawyer_info = f"{self.lawyer.fullname} ({self.lawyer.specialization or 'N/A'})"
+
         return {
             'id': self.id,
-            'user_name': self.client.fullname,
-            'lawyer_name': self.lawyer.fullname,
-            'date': self.date.strftime('%Y-%m-%d'),
+            'user_name': client_name,
+            'lawyer_name': lawyer_info,
+
+            'date': self.date.strftime('%Y-%m-%d') if self.date else None,
+
             'text': self.text,
             'rating': self.rating
         }

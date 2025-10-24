@@ -133,32 +133,32 @@ def all_lawyers():
 
 @app.route('/reviews')
 def reviews():
+    print("ROUTE: Accessing reviews page, loading from DB.")
 
-    reviews_list = [
-        {
-            'user_name': 'Anna K.',
-            'lawyer_name': 'Dr. Alan Smith (Tax Law)',
-            'rating': 5,
-            'text': 'Провел консультацию четко и быстро. Помог сэкономить большую сумму на налогах. Однозначно рекомендую!',
-            'date': '2025-09-01'
-        },
-        {
-            'user_name': 'Dmitry V.',
-            'lawyer_name': 'Ms. Jane Doe (Family Law)',
-            'rating': 4,
-            'text': 'Ответы были исчерпывающими, но пришлось немного подождать ответа. В целом, очень доволен результатом.',
-            'date': '2025-10-15'
-        },
-        {
-            'user_name': 'Client 777',
-            'lawyer_name': 'Mr. Bob Johnson (Real Estate)',
-            'rating': 3,
-            'text': 'Консультация прошла хорошо, но я ожидал большей конкретики по моему сложному вопросу. Хороший базовый совет.',
-            'date': '2025-10-20'
-        }
-    ]
+    try:
+        query = (
+            db.select(Review)
+            .options(
+                db.joinedload(Review.client),
+                db.joinedload(Review.lawyer)
+            )
+            .order_by(Review.date.desc())
+        )
 
-    return render_template('reviews.html', reviews=reviews_list)
+
+        reviews_objects = db.session.execute(query).scalars().all()
+
+        reviews_list = [
+            review.to_dict() for review in reviews_objects
+        ]
+
+        print(f"✅ Loaded {len(reviews_list)} reviews from the database.")
+
+        return render_template('reviews.html', reviews=reviews_list)
+
+    except Exception as e:
+        print(f"❌ ERROR loading reviews from DB: {e}")
+        return render_template('reviews.html', reviews=[])
 
 
 @app.route('/login', methods=['GET', 'POST'])
