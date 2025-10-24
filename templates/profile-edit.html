@@ -85,9 +85,9 @@
                             <hr class="my-4">
 
 
-                            <button class="btn btn-info" onclick="{{ url_for('user_dashboard', user_id=session.get('user_id')) }}">
+                            <a class="btn btn-info" href="{{ url_for('user_dashboard', user_id=session.get('user_id')) }}">
                                 <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
-                                </button>
+                                </a>
 
                         </div>
                     </div>

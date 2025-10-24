@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Reviews - JuristHUB{% endblock %}
+
+{% macro render_stars(rating) %}
+    {% for i in range(5) %}
+        {% if i < rating %}
+            {# Stars before rating - yellow (painted) #}
+            <i class="fas fa-star text-warning"></i>
+        {% else %}
+            {# Stars after rating - gray (empty) #}
+            <i class="far fa-star text-muted"></i>
+        {% endif %}
+    {% endfor %}
+{% endmacro %}
+
+
+{% block content %}
+
+    <header class="py-5 bg-light border-bottom">
+        <div class="container text-center">
+            <h1 class="fw-bold text-dark">Client Reviews</h1>
+            <p class="lead text-muted">What our clients say about the JuristHUB legal experts.</p>
+        </div>
+    </header>
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row">
+
+                {% for review in reviews %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 shadow-sm review-card">
+                            <div class="card-body">
+
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div>
+
+                                        <h5 class="fw-bold mb-0"><i class="fa-solid fa-user"></i> <span></span>{{ review.user_name }}</h5>
+                                        <small class="text-muted"><i class="fa-solid fa-calendar"></i> {{ review.date }}</small>
+                                    </div>
+
+                                    <div class="fs-5">
+                                        {{ render_stars(review.rating) }}
+                                    </div>
+                                </div>
+
+                                <p class="card-text border-start border-3 border-primary ps-3 mb-3">
+                                    {{ review.text }}
+                                </p>
+
+                                <p class="small mb-0 text-secondary">
+                                    <i class="fas fa-gavel me-1"></i> Reviewed for:
+                                    <i class="fa-solid fa-user-tie"></i>
+                                    <span class="fw-bold">{{ review.lawyer_name }}</span>
+                                </p>
+
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+
+            </div>
+        </div>
+    </section>
+
+{% endblock %}
