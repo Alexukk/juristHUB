@@ -40,16 +40,23 @@ class User(db.Model):
 
     isAdmin = db.Column(db.Boolean, nullable=True, default=False)
 
+    # models.py (Предполагаемый обновленный метод)
 
-    def to_dict_lawyer(self):
+    def to_dict_lawyer(self, rating=None, reviews_count=None):
         return {
             'id': self.id,
             'fullname': self.fullname,
             'specialization': self.specialization,
             'description': self.description,
             'photo_url': self.photo_url,
-        }
 
+            # Конвертируем Numeric в str для Jinja2:
+            'price': str(self.price) if self.price is not None else None,
+            'experience': self.experience,
+
+            'rating': float(rating) if rating is not None else None,
+            'reviews_count': reviews_count if reviews_count is not None else 0
+        }
 
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)

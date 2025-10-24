@@ -10,6 +10,10 @@ from sqlalchemy import select
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from sqlalchemy import cast, Numeric, distinct
+from models import User, Review # Убедитесь, что импортировали Review
+from sqlalchemy import func, case, text # Добавьте импорты func и case
+
+
 
 load_dotenv()
 
@@ -27,21 +31,40 @@ def login_required(f):
     return decorated_function
 
 
+
 @app.route('/')
 def index():
     print("ROUTE: Accessing index page.")
+
     try:
-        query = db.select(User).filter(User.isOnMain == True)
-        lawyers_objects = db.session.execute(query).scalars().all()
-        lawyers_data = [lawyer.to_dict_lawyer() for lawyer in lawyers_objects]
+        avg_rating = func.avg(Review.rating).label('average_rating')
+        count_reviews = func.count(Review.id).label('review_count')
+
+
+        query = (
+            db.select(
+                User,
+                avg_rating,
+                count_reviews
+            )
+            .filter(User.status == 'Lawyer', User.isOnMain == True)
+            .join(Review, User.id == Review.lawyer_user_id, isouter=True)
+            .group_by(User.id)
+            .order_by(text('average_rating DESC NULLS LAST'), User.id.asc())
+        )
+
+        results = db.session.execute(query).all()
+        lawyers_data = []
+        for lawyer_obj, rating_val, count_val in results:
+
+            data = lawyer_obj.to_dict_lawyer(rating=rating_val, reviews_count=count_val)
+            lawyers_data.append(data)
 
         print(f"✅ Lawyers loaded successfully for SSR: {len(lawyers_data)} records.")
         return render_template("index.html", lawyers=lawyers_data)
-
     except Exception as e:
-        print(f"❌ ERROR in index route while loading lawyers: {e}")
+        print(f"❌ CRITICAL ERROR in index route while loading lawyers: {e}")
         return render_template("index.html", lawyers=[])
-
 
 @app.route('/about')
 def about():
@@ -51,21 +74,49 @@ def about():
 
 @app.route('/lawyers', methods=['GET'])
 def all_lawyers():
-    query = User.query.filter_by(status='Lawyer')
+    avg_rating = func.avg(Review.rating).label('average_rating')
+    count_reviews = func.count(Review.id).label('review_count')
+
+    query = (
+        db.select(
+            User,
+            avg_rating,
+            count_reviews
+        )
+        .filter(User.status == 'Lawyer')
+
+        .join(Review, User.id == Review.lawyer_user_id, isouter=True)
+
+        .group_by(User.id)
+    )
 
 
     specialty_filter = request.args.get('specialty')
     if specialty_filter:
         query = query.filter(User.specialization == specialty_filter)
 
+
     sort_by = request.args.get('sort_by')
 
     if sort_by == 'price_asc':
+
         query = query.order_by(cast(User.price, Numeric).asc())
     elif sort_by == 'price_desc':
-        query = query.order_by(cast(User.price, Numeric).desc())
 
-    all_lawyers_list = query.all()
+        query = query.order_by(cast(User.price, Numeric).desc())
+    else:
+
+        query = query.order_by(text('average_rating DESC NULLS LAST'), User.id.asc())
+
+
+    results = db.session.execute(query).all()
+
+
+    lawyers_data = []
+    for lawyer_obj, rating_val, count_val in results:
+        data = lawyer_obj.to_dict_lawyer(rating=rating_val, reviews_count=count_val)
+        lawyers_data.append(data)
+
 
     unique_specialties_query = db.session.query(
         distinct(User.specialization)
@@ -76,7 +127,7 @@ def all_lawyers():
     unique_specialties = [s[0] for s in unique_specialties_query if s[0]]
 
     return render_template('all_lawyers.html',
-                           all_lawyers=all_lawyers_list,
+                           all_lawyers=lawyers_data,
                            unique_specialties=unique_specialties)
 
 

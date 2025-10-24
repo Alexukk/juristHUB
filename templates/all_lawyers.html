@@ -79,7 +79,7 @@
                                 <h5 class="fw-bold mb-0 text-primary">{{ lawyer.fullname }}</h5>
                                 <p class="mb-1 text-muted small">{{ lawyer.specialization }}</p>
                                 <div class="text-warning small">
-                                    <i class="fas fa-star"></i> {{ lawyer.rating | default('N/A') }} ({{ lawyer.reviews_count | default(0) }} Reviews)
+                                    <i class="fas fa-star"></i> {{ lawyer.rating | default('N/A') | round(1) }} ({{ lawyer.reviews_count or 0 }} Reviews)
                                 </div>
                             </div>
 
