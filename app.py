@@ -209,6 +209,42 @@ def logout():
 
     return render_template('logout.html')
 
+
+
+@app.route('/edit-profile/<int:user_id>', methods=['POST', 'GET'])
+@login_required
+def edit_profile(user_id):
+    if session['user_id'] == user_id or session['status'] == 'Admin':
+        if request.method == 'GET':
+            return render_template('profile-edit.html')
+        else:
+            username = request.form.get('username')
+            email = request.form.get('email')
+            try:
+                user = User.query.get_or_404(session['user_id'])
+                user.fullname = username
+                user.email = email
+                if request.form.get('password'):
+                    if request.form.get('password') != request.form.get('confirm_password'):
+                        flash('New password and confirmation do not match.', 'warning')
+                        return redirect(url_for('edit_profile', user_id=user_id))
+                    password = request.form.get('password')
+                    user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+                session['email'] = email
+                session['username'] = username
+                db.session.commit()
+                flash('Your account details have been successfully updated!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                print('An error occured while changing profile info: \n', e)
+                flash('An error occurred', 'danger')
+    else:
+        flash("You can't edit details of another user", "danger")
+        return redirect(url_for('index'))
+
+
+    return redirect(url_for('user_dashboard', user_id=session['user_id']))
+
 with app.app_context():
     db.create_all()
     print("DB check: db.create_all() executed.")

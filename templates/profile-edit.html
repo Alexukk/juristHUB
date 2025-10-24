@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Account - JuristHUB{% endblock %}
+
+{% block content %}
+
+    <header class="py-5 bg-light border-bottom">
+        <div class="container text-center">
+            <h1 class="fw-bold text-dark">Edit Account Details</h1>
+            <p class="lead text-muted">Update your profile information and password.</p>
+        </div>
+    </header>
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+
+                <div class="col-md-6 col-lg-5">
+
+                    <div class="card shadow-lg p-4 login-card animate__animated animate__fadeInUp">
+                        <div class="card-body">
+
+                            <h3 class="card-title text-center fw-bold mb-4 text-primary">Edit Profile</h3>
+
+                            <form method="POST" action="{{ url_for('edit_profile', user_id=session['user_id']) }}">
+
+                                {% with messages = get_flashed_messages(with_categories=true) %}
+                                    {% if messages %}
+                                        {% for category, message in messages %}
+                                            <div class="alert alert-{{ category }} alert-dismissible fade show mb-3" role="alert">
+                                                {{ message }}
+                                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endwith %}
+
+                                <div class="mb-3">
+                                    <label for="username" class="form-label fw-bold">Username</label>
+                                    <input type="text"
+                                           class="form-control form-control-lg"
+                                           id="username"
+                                           name="username"
+                                           required
+                                           value="{{ session.get('username') }}">
+                                           </div>
+
+
+                                <div class="mb-3">
+                                    <label for="email" class="form-label fw-bold">Email Address</label>
+                                    <input type="email"
+                                           class="form-control form-control-lg"
+                                           id="email"
+                                           name="email"
+                                           required
+                                           value="{{ session.get('email') }}">
+                                           </div>
+
+                                <hr class="my-4">
+                                <h5 class="text-secondary mb-3">Change Password (Optional)</h5>
+
+                                <div class="mb-3">
+                                    <label for="password" class="form-label fw-bold">New Password</label>
+                                    <input type="password"
+                                           class="form-control form-control-lg"
+                                           id="password"
+                                           name="password"
+                                           placeholder="Leave blank to keep current password">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="confirm_password" class="form-label fw-bold">Confirm New Password</label>
+                                    <input type="password"
+                                           class="form-control form-control-lg"
+                                           id="confirm_password"
+                                           name="confirm_password"
+                                           placeholder="Repeat new password">
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                                    <i class="fas fa-save me-2"></i> Save Changes
+                                </button>
+
+                            </form>
+                            <hr class="my-4">
+
+
+                            <button class="btn btn-info" onclick="{{ url_for('user_dashboard', user_id=session.get('user_id')) }}">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+                                </button>
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+{% endblock %}
