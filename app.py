@@ -9,6 +9,7 @@ from models import User
 from sqlalchemy import select
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from sqlalchemy import cast, Numeric, distinct
 
 load_dotenv()
 
@@ -32,7 +33,7 @@ def index():
     try:
         query = db.select(User).filter(User.isOnMain == True)
         lawyers_objects = db.session.execute(query).scalars().all()
-        lawyers_data = [lawyer.to_dict() for lawyer in lawyers_objects]
+        lawyers_data = [lawyer.to_dict_lawyer() for lawyer in lawyers_objects]
 
         print(f"✅ Lawyers loaded successfully for SSR: {len(lawyers_data)} records.")
         return render_template("index.html", lawyers=lawyers_data)
@@ -48,10 +49,35 @@ def about():
     return render_template("about.html")
 
 
-@app.route('/lawyers')
+@app.route('/lawyers', methods=['GET'])
 def all_lawyers():
-    print("ROUTE: Accessing all_lawyers page.")
-    return render_template('lawyers.html')
+    query = User.query.filter_by(status='Lawyer')
+
+
+    specialty_filter = request.args.get('specialty')
+    if specialty_filter:
+        query = query.filter(User.specialization == specialty_filter)
+
+    sort_by = request.args.get('sort_by')
+
+    if sort_by == 'price_asc':
+        query = query.order_by(cast(User.price, Numeric).asc())
+    elif sort_by == 'price_desc':
+        query = query.order_by(cast(User.price, Numeric).desc())
+
+    all_lawyers_list = query.all()
+
+    unique_specialties_query = db.session.query(
+        distinct(User.specialization)
+    ).filter(
+        User.specialization.isnot(None),
+        User.status == 'Lawyer'
+    ).all()
+    unique_specialties = [s[0] for s in unique_specialties_query if s[0]]
+
+    return render_template('all_lawyers.html',
+                           all_lawyers=all_lawyers_list,
+                           unique_specialties=unique_specialties)
 
 
 @app.route('/reviews')
@@ -110,6 +136,7 @@ def login():
         session['email'] = user.email
         session['status'] = user.status
         session['user_id'] = user.id
+        session['balance'] = user.balance
 
 
         flash(f'Welcome back, {user.fullname}!', 'success')
@@ -155,7 +182,8 @@ def sign_up():
             email=email,
             status='Client',
             password_hash=hashed_password,
-            isOnMain=False
+            isOnMain=False,
+            balance = 0
         )
 
         try:
@@ -185,6 +213,11 @@ def sign_up():
 def admin_panel():
     print("ROUTE: Accessing admin_panel.")
     return "Admin Panel - Coming Soon"
+
+@app.route('/lawyer-page/<int:lawyer_id>')
+def lawyer_page(lawyer_id):
+    return 'Lawqed'
+
 
 
 @app.route('/user/dashboard/<int:user_id>')
@@ -224,7 +257,6 @@ def user_dashboard(user_id):
         'user_dashboard.html',
         upcoming_meetings=upcoming_meetings,
         completed_meetings=completed_meetings,
-        user_balance=50
     )
 
 

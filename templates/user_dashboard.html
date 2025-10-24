@@ -35,7 +35,7 @@
                     Your Balance:
                     <span class="fw-bold text-warning">
                         <i class="fa-solid fa-dollar-sign"></i>
-                        {{ "%.2f" | format(user_balance) }}
+                        {{ "%.2f" | format(session['balance']) }}
                     </span>
                 </h3>
                 <a href="/wallet/topup" class="btn btn-success btn-sm shadow">

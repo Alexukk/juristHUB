@@ -22,38 +22,35 @@
             <form action="{{ url_for('all_lawyers') }}" method="GET">
                 <div class="row g-3 align-items-center">
 
-
-
                     <div class="col-md-3">
                         <select name="specialty" class="form-select form-select-lg">
                             <option value="">Filter by Specialty</option>
                             {% for spec in unique_specialties %}
                                 <option value="{{ spec }}" {% if request.args.get('specialty') == spec %}selected{% endif %}>{{ spec }}</option>
                             {% endfor %}
-
-                            <option value="CriminalLaw">Criminal Law</option>
-                            <option value="FamilyLaw">Family Law</option>
-                            <option value="CorporateLaw">Corporate Law</option>
-                            <option value="Real EstateLaw">RealEstate Law</option>
-                            <option value="ImmigrationLaw">Immigration Law</option>
-                            <option value="IntellectualProperty">Intellectual Property</option>
-                            <option value="CivilLitigation">Civil Litigation</option>
-                            <option value="Tax Law">TaxLaw</option>
                         </select>
                     </div>
 
                     <div class="col-md-2">
                         <select name="sort_by" class="form-select form-select-lg">
                             <option value="">Sort By...</option>
-
                             <option value="price_asc" {% if request.args.get('sort_by') == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
                             <option value="price_desc" {% if request.args.get('sort_by') == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
-
                          </select>
                     </div>
 
-                    <div class="col-md-2 text-end">
-                        <button type="submit" class="btn btn-primary btn-lg w-100">Apply Filter</button>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                            <i class="fa-solid fa-check"></i>
+                            Apply Filter</button>
+                    </div>
+
+                    {# ДОБАВЛЕНО: Кнопка "Clear Filters" #}
+                    <div class="col-md-2">
+                        <a href="{{ url_for('all_lawyers') }}" class="btn btn-outline-secondary btn-lg w-100">
+                            <i class="fa-solid fa-broom"></i>
+                            Clear Filters
+                        </a>
                     </div>
                 </div>
             </form>
@@ -74,15 +71,15 @@
                             <div class="col-md-2 col-lg-1 text-center">
                                 <img src="{{ lawyer.photo_url or 'https://via.placeholder.com/150x150.png?text=Photo' }}"
                                      class="lawyer-list-img rounded-circle object-fit-cover shadow-sm"
-                                     alt="{{ lawyer.name }}"
+                                     alt="{{ lawyer.fullname }}"
                                      style="width: 80px; height: 80px;">
                             </div>
 
                             <div class="col-md-5 col-lg-4 p-3">
-                                <h5 class="fw-bold mb-0 text-primary">{{ lawyer.name }}</h5>
+                                <h5 class="fw-bold mb-0 text-primary">{{ lawyer.fullname }}</h5>
                                 <p class="mb-1 text-muted small">{{ lawyer.specialization }}</p>
                                 <div class="text-warning small">
-                                    <i class="fas fa-star"></i> {{ lawyer.rating or 'N/A' }} ({{ lawyer.reviews_count or 0 }} Reviews)
+                                    <i class="fas fa-star"></i> {{ lawyer.rating | default('N/A') }} ({{ lawyer.reviews_count | default(0) }} Reviews)
                                 </div>
                             </div>
 
@@ -91,17 +88,17 @@
                                     <i class="fas fa-dollar-sign me-1 text-success"></i> ${{ lawyer.price }}/Hour
                                 </p>
                                 <p class="mb-0 text-muted small">
-                                    <i class="fas fa-map-marker-alt me-1 text-info"></i> {{ lawyer.city or 'Online only' }}
+                                    <i class="fas fa-briefcase me-1 text-info"></i> {{ lawyer.experience | default('N/A') }} Experience
                                 </p>
                             </div>
 
                             <div class="col-md-2 col-lg-4 text-center text-lg-end p-3">
-                                <a href="/book/{{ lawyer.id }}" class="btn btn-warning fw-bold w-75">
-                                    Book Now <i class="fas fa-calendar-alt ms-1"></i>
+                                {# ИЗМЕНЕНО: Создана ОДНА желтая кнопка, ведущая на страницу юриста #}
+                                <a href="{{ url_for('lawyer_page', lawyer_id=lawyer.id) }}"
+                                   class="btn btn-warning fw-bold w-100">
+                                    View Lawyer <i class="fas fa-arrow-right ms-1"></i>
                                 </a>
-                                <a href="/lawyer/{{ lawyer.id }}" class="btn btn-link text-muted mt-2 d-block d-lg-inline-block">
-                                    View Profile
-                                </a>
+                                {# УДАЛЕНО: Ссылка "View Profile" и кнопка "Book Now" #}
                             </div>
 
                         </div>
