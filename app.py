@@ -253,6 +253,7 @@ def sign_up():
         session['email'] = email
         session['status'] = new_user.status
         session['user_id'] = new_user.id
+        session['balance'] = 0
 
         flash("Registration successful and logged in!", 'success')
 
@@ -265,10 +266,69 @@ def admin_panel():
     print("ROUTE: Accessing admin_panel.")
     return "Admin Panel - Coming Soon"
 
-@app.route('/lawyer-page/<int:lawyer_id>')
-def lawyer_page(lawyer_id):
-    return 'Lawqed'
 
+@app.route('/lawyer/<int:lawyer_id>')
+def lawyer_page(lawyer_id):
+    print(f"ROUTE: Accessing profile for Lawyer ID: {lawyer_id}")
+
+    try:
+
+        avg_rating = func.avg(Review.rating).label('average_rating')
+        count_reviews = func.count(Review.id).label('review_count')
+
+        query = (
+            db.select(User, avg_rating, count_reviews)
+            .filter(User.id == lawyer_id, User.status == 'Lawyer')
+            # LEFT JOIN для включения юристов без отзывов
+            .join(Review, User.id == Review.lawyer_user_id, isouter=True)
+            .group_by(User.id)
+        )
+
+        result = db.session.execute(query).first()
+
+        if not result:
+            print(f"FAIL: Lawyer ID {lawyer_id} not found.")
+            return "Error 404: Lawyer not found.", 404
+
+        lawyer_obj, rating_val, count_val = result
+
+        lawyer_data = lawyer_obj.to_dict_lawyer(
+            rating=rating_val,
+            reviews_count=count_val
+        )
+
+
+        reviews_query = (
+            db.select(Review)
+            .filter(Review.lawyer_user_id == lawyer_id)
+            .options(db.joinedload(Review.client))
+            .order_by(Review.date.desc())
+        )
+
+        reviews_objects = db.session.execute(reviews_query).scalars().all()
+
+        reviews_list = [review.to_dict() for review in reviews_objects]
+
+        print(f"✅ Lawyer profile loaded: {lawyer_data['fullname']}, Reviews shown: {len(reviews_list)}")
+
+        return render_template(
+            'lawyer_profile.html',
+            lawyer=lawyer_data,
+            reviews=reviews_list,
+            booking_endpoint=url_for('book_consultation', lawyer_id=lawyer_data['id'])
+        )
+
+    except Exception as e:
+        print(f"❌ CRITICAL ERROR accessing lawyer profile: {e}")
+        return "Internal Server Error", 500
+
+
+@app.route('/book-consultation/<int:lawyer_id>')
+@login_required
+def book_consultation(lawyer_id):
+
+
+    return redirect('/')
 
 
 @app.route('/user/dashboard/<int:user_id>')

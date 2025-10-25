@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Profile: {{ lawyer.fullname }} ({{ lawyer.specialization }}){% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+
+    <div class="row mb-5 align-items-center bg-light p-4 rounded shadow-sm">
+
+        <div class="col-md-4 text-center mb-4 mb-md-0">
+            <img src="{{ lawyer.photo_url or 'https://via.placeholder.com/200' }}"
+                 alt="{{ lawyer.fullname }} photo"
+                 class="img-fluid rounded-circle mb-3 border border-warning border-3"
+                 style="width: 200px; height: 200px; object-fit: cover;">
+
+            <h2 class="fw-bold text-primary">{{ lawyer.fullname }}</h2>
+            <h4 class="text-secondary">{{ lawyer.specialization }}</h4>
+
+            <a href="{{ booking_url }}" class="btn btn-warning btn-lg fw-bold mt-3">
+                <i class="fas fa-calendar-check me-2"></i> Book Consultation
+            </a>
+        </div>
+
+        <div class="col-md-8">
+            <h3 class="mb-4">Professional Details</h3>
+
+            <p class="lead">{{ lawyer.description }}</p>
+
+            <div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
+                <div class="col">
+                    <div class="p-3 border rounded text-center h-100 bg-white">
+                        <i class="fas fa-star fa-2x text-warning mb-2"></i>
+                        <p class="mb-0 fw-bold">Rating</p>
+                        <h5 class="text-dark">{{ lawyer.rating | default('N/A') | round(1) }} / 5.0</h5>
+                        <small class="text-muted">({{ lawyer.reviews_count | default(0) }} Reviews)</small>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="p-3 border rounded text-center h-100 bg-white">
+                        <i class="fas fa-briefcase fa-2x text-info mb-2"></i>
+                        <p class="mb-0 fw-bold">Experience</p>
+                        <h5 class="text-dark">{{ lawyer.experience or 'N/A' }}</h5>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="p-3 border rounded text-center h-100 bg-white">
+                        <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                        <p class="mb-0 fw-bold">Price</p>
+                        <h5 class="text-dark">${{ lawyer.price or 'N/A' }} / Hr</h5>
+                    </div>
+                </div>
+            </div>
+
+            <p class="text-muted small">*All prices are subject to change. Please confirm during booking.</p>
+        </div>
+    </div>
+
+    <h3 class="mt-5 mb-4 border-bottom pb-2">Client Reviews ({{ reviews|length }})</h3>
+
+    {% if reviews %}
+        {% for review in reviews %}
+            <div class="card mb-3 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="fw-bold mb-0">
+                                <i class="fas fa-user-tag me-2 text-secondary"></i>{{ review.user_name }}
+                            </h6>
+                            <small class="text-muted"><i class="fa-solid fa-calendar"></i>&nbsp;  {{ review.date }}</small>
+                        </div>
+
+                        <div>
+                            {% set safe_rating = review.rating | default(0) | int %}
+                            {% for i in range(5) %}
+                                {% if i < safe_rating %}
+                                    <i class="fas fa-star text-warning small"></i>
+                                {% else %}
+                                    <i class="far fa-star text-warning-subtle small"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <p class="card-text mt-3 border-start border-3 ps-3">{{ review.text }}</p>
+                </div>
+            </div>
+        {% endfor %}
+
+
+
+    {% else %}
+        <div class="alert alert-info text-center">
+            <i class="fas fa-info-circle me-2"></i> This lawyer has not yet received any reviews.
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

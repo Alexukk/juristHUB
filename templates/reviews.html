@@ -51,8 +51,10 @@
 
                                 <p class="small mb-0 text-secondary">
                                     <i class="fas fa-gavel me-1"></i> Reviewed for:
-                                    <i class="fa-solid fa-user-tie"></i>
-                                    <span class="fw-bold">{{ review.lawyer_name }}</span>
+                                    <a href="{{ url_for('lawyer_page', lawyer_id=review.id) }}" class="text-dark">
+                                        <i class="fa-solid fa-user-tie"></i>
+                                        <span class="fw-bold">{{ review.lawyer_name }}</span>
+                                    </a>
                                 </p>
 
                             </div>

@@ -83,7 +83,6 @@ class Review(db.Model):
             'id': self.id,
             'user_name': client_name,
             'lawyer_name': lawyer_info,
-
             'date': self.date.strftime('%Y-%m-%d') if self.date else None,
 
             'text': self.text,
