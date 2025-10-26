@@ -13,8 +13,13 @@ class User(db.Model):
     status = db.Column(db.String(40), nullable=False, default='Client')
     balance = db.Column(db.Numeric, nullable=False)
 
-    # Rows for lawyers
 
+    # =========================================================================
+    zoom_link = db.Column(db.String(300), nullable=True)
+    office_address = db.Column(db.String(300), nullable=True)
+    # =========================================================================
+
+    # Rows for lawyers
     experience = db.Column(db.String(120), nullable=True)
     specialization = db.Column(db.String(120), nullable=True)
     price = db.Column(db.String(120), nullable=True)
@@ -23,7 +28,6 @@ class User(db.Model):
     isOnMain = db.Column(db.Boolean, nullable=True, default=False)
 
     # Reviews
-
     reviews_given = db.relationship(
         'Review',
         foreign_keys='[Review.client_id]',
@@ -52,7 +56,6 @@ class User(db.Model):
     )
 
     # Rows for admin
-
     isAdmin = db.Column(db.Boolean, nullable=True, default=False)
 
     def to_dict_lawyer(self, rating=None, reviews_count=None):
@@ -65,6 +68,10 @@ class User(db.Model):
 
             'price': str(self.price) if self.price is not None else None,
             'experience': self.experience,
+
+            # Добавьте эти поля для отображения на странице профиля, если нужно
+            'zoom_link': self.zoom_link,
+            'office_address': self.office_address,
 
             'rating': float(rating) if rating is not None else None,
             'reviews_count': reviews_count if reviews_count is not None else 0
@@ -114,8 +121,10 @@ class Consultation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     type = db.Column(db.String(10), nullable=False)
+
     meeting_url = db.Column(db.String(300), nullable=True)
     location_gmaps = db.Column(db.String(300), nullable=True)
+
     client_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     lawyer_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     status = db.Column(db.String(10), nullable=False)

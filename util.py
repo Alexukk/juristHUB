@@ -2,7 +2,8 @@ from app import app, db
 from models import User, Review  # Убедитесь, что импортировали обе модели
 from werkzeug.security import generate_password_hash
 import random
-from decimal import Decimal  # Обязательно для работы с db.Numeric
+from decimal import Decimal
+from datetime import datetime, timezone # Добавим, если используется в моделях
 
 
 # Функция для генерации случайного хэша
@@ -32,6 +33,16 @@ BAD_TEXT = [
     "Felt rushed during the consultation."
 ]
 
+# НОВЫЕ ДАННЫЕ ДЛЯ ТЕСТИРОВАНИЯ МЕСТА ВСТРЕЧИ
+RICK_ROLL_URL = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+OFFICE_ADDRESSES = [
+    "100 Wall Street, New York, NY 10005",
+    "750 N Dearborn St, Chicago, IL 60654",
+    "350 S Grand Ave, Los Angeles, CA 90071",
+    "221B Baker St, London NW1 6XE, UK",
+    "1600 Pennsylvania Avenue NW, Washington, D.C. 20500"
+]
+
 with app.app_context():
     # ---------------------------------------------
     # 1. ОЧИСТКА БАЗЫ (Опционально, для чистого старта)
@@ -39,7 +50,7 @@ with app.app_context():
 
     # !!! РАСКОММЕНТИРУЙТЕ, ЕСЛИ НУЖНО ОЧИСТИТЬ БАЗУ !!!
     # db.drop_all()
-    # db.create_all()
+    # db.create_all() # <-- Не забудьте создать заново!
 
     users_to_add = []
 
@@ -51,7 +62,7 @@ with app.app_context():
         email="admin@jurist.com",
         status='Admin',
         password_hash=create_hash("adminpass"),
-        balance=str(Decimal('9999.00')),  # ИСПРАВЛЕНО: конвертация в str
+        balance=str(Decimal('9999.00')),
         isAdmin=True
     )
     users_to_add.append(admin)
@@ -60,6 +71,7 @@ with app.app_context():
     # 3. ЮРИСТЫ (5 пользователей)
     # ---------------------------------------------
 
+    # Юристы с высоким рейтингом
     for i in range(1, 4):
         spec = random.choice(SPECIALIZATIONS)
         lawyer = User(
@@ -67,16 +79,20 @@ with app.app_context():
             email=f"lawyer{i}@jurist.com",
             status='Lawyer',
             password_hash=create_hash(f"lawpass{i}"),
-            balance=str(Decimal('0.00')),  # ИСПРАВЛЕНО: конвертация в str
+            balance=str(Decimal('0.00')),
             experience=f"{random.randint(5, 15)} years",
             specialization=spec,
-            price=str(Decimal(random.randint(80, 150))),  # ИСПРАВЛЕНО: конвертация в str
+            price=str(Decimal(random.randint(80, 150))),
             description=f"Specialist in {spec} with a strong track record of success.",
             photo_url=f"/static/photos/lawyer{i}.jpg",
-            isOnMain=True
+            isOnMain=True,
+            # ДОБАВЛЕНО: Ссылки для тестирования Webhook
+            zoom_link=RICK_ROLL_URL,
+            office_address=random.choice(OFFICE_ADDRESSES)
         )
         users_to_add.append(lawyer)
 
+    # Юристы с низким рейтингом
     for i in range(4, 6):
         spec = random.choice(SPECIALIZATIONS)
         lawyer = User(
@@ -84,13 +100,16 @@ with app.app_context():
             email=f"lawyer{i}@jurist.com",
             status='Lawyer',
             password_hash=create_hash(f"lawpass{i}"),
-            balance=str(Decimal('0.00')),  # ИСПРАВЛЕНО: конвертация в str
+            balance=str(Decimal('0.00')),
             experience=f"{random.randint(2, 7)} years",
             specialization=spec,
-            price=str(Decimal(random.randint(50, 90))),  # ИСПРАВЛЕНО: конвертация в str
+            price=str(Decimal(random.randint(50, 90))),
             description=f"Experienced professional focused on {spec}.",
             photo_url=f"/static/photos/lawyer{i}.jpg",
-            isOnMain=False
+            isOnMain=False,
+            # ДОБАВЛЕНО: Ссылки для тестирования Webhook
+            zoom_link=RICK_ROLL_URL,
+            office_address=random.choice(OFFICE_ADDRESSES)
         )
         users_to_add.append(lawyer)
 
@@ -103,7 +122,7 @@ with app.app_context():
             email=f"client{i}@test.com",
             status='Client',
             password_hash=create_hash(f"clientpass{i}"),
-            balance=str(Decimal(random.randint(0, 200))),  # ИСПРАВЛЕНО: конвертация в str
+            balance=str(Decimal(random.randint(0, 200))),
             isOnMain=False,
         )
         users_to_add.append(client)
@@ -119,12 +138,16 @@ with app.app_context():
     except Exception as e:
         print(f"❌ CRITICAL ERROR DURING USER SEEDING: {e}")
         db.session.rollback()
-        exit()  # Выход при ошибке
+        # Если вы вносили изменения в модель (как мы делали с zoom_link),
+        # и не сделали миграцию, может возникнуть ошибка.
+        # Попробуйте db.drop_all() / db.create_all() в начале файла.
+        exit()
 
     # ---------------------------------------------
     # 6. НАПОЛНЕНИЕ ОТЗЫВАМИ (Review)
     # ---------------------------------------------
 
+    # ... (код для создания отзывов не изменен) ...
     try:
         # Получаем ID всех клиентов и юристов
         client_ids = db.session.query(User.id).filter(User.status == 'Client').all()
