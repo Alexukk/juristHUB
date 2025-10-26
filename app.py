@@ -12,12 +12,13 @@ from sqlalchemy import cast, Numeric, distinct
 from models import User, Review, Consultation # Убедитесь, что импортировали Review
 from sqlalchemy import func, case, text # Добавьте импорты func и case
 import stripe
+from datetime import date
 
 
 load_dotenv()
 
 stripe.api_key = os.getenv("STRIPE_TEST_PRIVATE")
-
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 def login_required(f):
 
@@ -311,12 +312,13 @@ def lawyer_page(lawyer_id):
         reviews_list = [review.to_dict() for review in reviews_objects]
 
         print(f"✅ Lawyer profile loaded: {lawyer_data['fullname']}, Reviews shown: {len(reviews_list)}")
-
+        today_date_str = date.today().isoformat()
         return render_template(
             'lawyer_profile.html',
             lawyer=lawyer_data,
             reviews=reviews_list,
-            booking_endpoint=url_for('book_consultation', lawyer_id=lawyer_data['id'])
+            booking_endpoint=url_for('book_consultation', lawyer_id=lawyer_data['id']),
+            today_date=today_date_str
         )
 
     except Exception as e:
@@ -490,7 +492,7 @@ def payment_provider(lawyer_id):
 
         return redirect(stripe_session.url)  # Используем stripe_session, чтобы не перезаписать Flask session
 
-    return render_template('buy.html', lawyer_id=lawyer_id)
+    return redirect('/')
 
 
 # --- ОБРАБОТКА ВЕБХУКОВ (Webhook) ---
