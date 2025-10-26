@@ -8,6 +8,7 @@ dotenv = "*"
 python-dotenv = "==1.1.1"
 flask-sqlalchemy = "==3.1.1"
 flask = "==3.1.2"
+stripe = "*"
 
 [dev-packages]
 

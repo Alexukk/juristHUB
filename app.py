@@ -1,21 +1,22 @@
-from os import execle
 from flask import Flask, redirect, render_template, request, session, url_for, flash, jsonify
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
 from config import app, db
-from models import User
+from models import User, Consultation
 from sqlalchemy import select
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 from sqlalchemy import cast, Numeric, distinct
-from models import User, Review # Убедитесь, что импортировали Review
+from models import User, Review, Consultation # Убедитесь, что импортировали Review
 from sqlalchemy import func, case, text # Добавьте импорты func и case
-
+import stripe
 
 
 load_dotenv()
+
+stripe.api_key = os.getenv("STRIPE_TEST_PRIVATE")
 
 
 def login_required(f):
@@ -417,6 +418,157 @@ def edit_profile(user_id):
 
 
     return redirect(url_for('user_dashboard', user_id=session['user_id']))
+
+
+# STRIPE PAYMENTS LOGIC
+
+@app.route('/consultation/<int:lawyer_id>/checkout', methods=['POST', 'GET'])
+@login_required
+def payment_provider(lawyer_id):
+    # Убираем session=session из аргументов функции, так как Flask передает ее глобально
+    if request.method == 'POST':
+        # ⚠️ ПОЛУЧЕНИЕ ID КЛИЕНТА
+        client_id = session.get('user_id')
+        if not client_id:
+            # Если @login_required не сработает или сессия пуста
+            return redirect(url_for('login_route'))
+
+            # 1. Получение данных бронирования
+        date_str = request.form.get('booking_date')
+        time_str = request.form.get('booking_time')
+        consultation_type = request.form.get('type', 'Online')
+
+        # 2. Получение цены юриста и конвертация
+        lawyer = db.session.get(User, lawyer_id)
+        if not lawyer or lawyer.status != 'Lawyer':
+            return "Lawyer not found or is inactive", 404
+
+        try:
+            price_usd = float(lawyer.price)
+            consultation_price_cents = int(price_usd * 100)
+
+            booking_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M').replace(
+                tzinfo=timezone.utc)
+
+        except (ValueError, TypeError) as e:
+            return f"Invalid data (price or datetime): {e}", 500
+
+        # 3. Регистрация заказа (предварительная запись в БД)
+        new_consultation = Consultation(
+            client_id=client_id,
+            lawyer_user_id=lawyer_id,
+            date=booking_datetime,
+            type=consultation_type,
+            status='pending',
+            payment_status='unpaid'  # Ставим 'unpaid', пока Stripe не подтвердит оплату
+        )
+        db.session.add(new_consultation)
+        db.session.commit()
+
+        # 4. Создание сессии Stripe Checkout
+        stripe_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': f'Consultation with {lawyer.fullname}',
+                        'description': f'Type: {consultation_type} on {date_str} at {time_str}',
+                    },
+                    'unit_amount': consultation_price_cents,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            # !!! Передаем ID консультации через metadata для использования в Webhook !!!
+            metadata={'consultation_id': new_consultation.id},
+
+            # URL-адреса для перенаправления
+            success_url=url_for('payment_success', _external=True) + '?consultation_id=' + str(new_consultation.id),
+            cancel_url=url_for('payment_canceled', _external=True) + '?consultation_id=' + str(new_consultation.id),
+        )
+
+        return redirect(stripe_session.url)  # Используем stripe_session, чтобы не перезаписать Flask session
+
+    return render_template('buy.html', lawyer_id=lawyer_id)
+
+
+# --- ОБРАБОТКА ВЕБХУКОВ (Webhook) ---
+@app.route('/stripe-webhook', methods=['POST'])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get('stripe-signature')
+    event = None
+
+    # 1. Проверка подписи (Signature Verification) для безопасности
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError as e:
+        # Неверный payload
+        return jsonify({'error': 'Invalid payload'}), 400
+    except stripe.error.SignatureVerificationError as e:
+
+        return jsonify({'error': 'Invalid signature'}), 400
+
+    # 2. Обработка типа события
+    if event['type'] == 'checkout.session.completed':
+        session_data = event['data']['object']
+
+        consultation_id = session_data.get('metadata', {}).get('consultation_id')
+
+        if consultation_id:
+            try:
+                consultation = db.session.get(Consultation, int(consultation_id))
+
+                if consultation and consultation.payment_status == 'unpaid':
+                    # Устанавливаем статус 'paid'
+                    consultation.payment_status = 'paid'
+                    consultation.status = 'pending'  # Или 'scheduled'
+
+                    # 💡 TODO: Здесь можно сгенерировать ссылку Zoom/записать адрес в БД
+
+                    db.session.commit()
+                    # 📧 TODO: Отправить уведомления юристу и клиенту
+                    print(f"WEBHOOK SUCCESS: Consultation {consultation_id} marked as PAID.")
+
+            except Exception as db_error:
+                db.session.rollback()
+                # Возвращаем 500, чтобы Stripe попытался отправить событие еще раз
+                return jsonify({'message': f'DB Error: {db_error}'}), 500
+
+                # 3. Возврат успешного ответа
+    # Всегда возвращаем 200 OK, чтобы Stripe знал, что событие получено
+    return jsonify({'status': 'success'}), 200
+
+
+# --- МАРШРУТЫ ЗАВЕРШЕНИЯ ОПЛАТЫ (UX Redirects) ---
+@app.route('/consultation/payment/success')
+def payment_success():
+    consultation_id = request.args.get('consultation_id')
+    consultation = db.session.get(Consultation, consultation_id)
+
+    # Мы не обновляем статус здесь, а просто информируем пользователя.
+    # Фактическое обновление сделает Webhook.
+    if consultation:
+        return f"Booking confirmed! We are now verifying your payment via Stripe. Consultation ID: {consultation_id}. Check your dashboard soon."
+
+    return "Error: Booking not found."
+
+
+@app.route('/consultation/payment/cancel')
+def payment_canceled():
+    consultation_id = request.args.get('consultation_id')
+    consultation = db.session.get(Consultation, consultation_id)
+
+    if consultation:
+        # Удаляем бронирование, так как оплаты не было и она не ожидается
+        db.session.delete(consultation)
+        db.session.commit()
+
+    return 'Payment canceled. The booking has been deleted.'
+
 
 with app.app_context():
     db.create_all()
