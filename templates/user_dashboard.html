@@ -51,10 +51,60 @@
 </header>
 
 <div class="py-5 container">
-    <div class="row">
+    <h2 class="mb-4 text-dark">My Consultations</h2>
 
-        <div class="col-12 mb-5">
-            <h2 class="mb-4 text-dark">Upcoming Consultations ({{ upcoming_meetings | length }})</h2>
+    <ul class="nav nav-pills mb-3 shadow-sm p-2 rounded bg-light" id="consultationTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active"
+                    id="upcoming-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#upcoming"
+                    type="button"
+                    role="tab"
+                    aria-controls="upcoming"
+                    aria-selected="true"
+                    style="color: #004c99;">
+                <i class="fas fa-calendar-alt me-1"></i> Upcoming ({{ upcoming_meetings | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link text-secondary"
+                    id="completed-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#completed"
+                    type="button"
+                    role="tab"
+                    aria-controls="completed"
+                    aria-selected="false">
+                <i class="fas fa-check-circle me-1"></i> Completed ({{ completed_meetings | length }})
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link text-danger"
+                    id="cancelled-tab"
+                    data-bs-toggle="tab"
+                    data-bs-target="#cancelled"
+                    type="button"
+                    role="tab"
+                    aria-controls="cancelled"
+                    aria-selected="false">
+                <i class="fas fa-times-circle me-1"></i> Cancelled ({{ cancelled_meetings | length }})
+            </button>
+        </li>
+    </ul>
+    <style>
+        /* Дополнительный CSS для контраста активной вкладки */
+        #consultationTabs .nav-link:not(.active) {
+            color: #495057 !important; /* Серый цвет для неактивных, если стили Bootstrap не работают */
+        }
+        #consultationTabs .nav-link.active {
+            background-color: #004c99 !important; /* Синий фон для активной вкладки */
+            color: white !important; /* Белый текст для активной вкладки */
+        }
+    </style>
+    <div class="tab-content" id="consultationTabsContent">
+
+        <div class="tab-pane fade show active" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
             {% for meeting in upcoming_meetings %}
                 <div class="card shadow-sm mb-3 border-primary">
                     <div class="card-body row align-items-center">
@@ -90,43 +140,64 @@
             {% endfor %}
         </div>
 
-        <hr class="my-4">
+        <div class="tab-pane fade" id="completed" role="tabpanel" aria-labelledby="completed-tab">
+            {% for meeting in completed_meetings %}
+                <div class="card shadow-sm mb-3 border-secondary">
+                    <div class="card-body row align-items-center">
+                        <div class="col-md-7">
+                            <h5 class="card-title fw-bold text-secondary">{{ meeting.lawyer_name }}</h5>
+                            <p class="card-text mb-0">
+                                <i class="fas fa-calendar-check me-2"></i> Date: {{ meeting.date }} at {{ meeting.time }}
+                            </p>
+                        </div>
+                        <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
 
-        <div class="col-12">
+                            <span class="badge bg-dark me-3 p-2"><i class="fas fa-clock"></i> Completed</span>
 
-            <h2 class="mb-4 text-dark d-flex justify-content-between align-items-center">
-                Completed Consultations
-                <button class="btn btn-outline-secondary" type="button"
-                        data-bs-toggle="collapse" data-bs-target="#completedList"
-                        aria-expanded="false" aria-controls="completedList">
-                    <i class="fas fa-chevron-down"></i> Show/Hide ({{ completed_meetings | length }})
-                </button>
-            </h2>
-
-            <div class="collapse" id="completedList">
-                {% for meeting in completed_meetings %}
-                    <div class="card shadow-sm mb-3 border-secondary">
-                        <div class="card-body row align-items-center">
-                            <div class="col-md-7">
-                                <h5 class="card-title fw-bold text-secondary">{{ meeting.lawyer_name }}</h5>
-                                <p class="card-text mb-0">
-                                    <i class="fas fa-calendar-check me-2"></i> Date: {{ meeting.date }} at {{ meeting.time }}
-                                </p>
-                            </div>
-                            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
-
-                                <span class="badge bg-dark me-3 p-2"><i class="fas fa-clock"></i> Completed</span>
-
-                                <a href="{{ url_for('consultation_details', consultation_id=meeting.id) }}" class="btn btn-sm btn-info text-white shadow-sm">
-                                    <i class="fa-solid fa-circle-info"></i> Details
-                                </a>
-                            </div>
+                            <a href="{{ url_for('consultation_details', consultation_id=meeting.id) }}" class="btn btn-sm btn-info text-white shadow-sm">
+                                <i class="fa-solid fa-circle-info"></i> Details
+                            </a>
                         </div>
                     </div>
-                {% else %}
-                    <div class="alert alert-warning">You have no completed consultations yet.</div>
-                {% endfor %}
-            </div>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">You have no completed consultations yet.</div>
+            {% endfor %}
+        </div>
+
+        <div class="tab-pane fade" id="cancelled" role="tabpanel" aria-labelledby="cancelled-tab">
+            {% for meeting in cancelled_meetings %}
+                <div class="card shadow-sm mb-3 border-danger">
+                    <div class="card-body row align-items-center">
+                        <div class="col-md-7">
+                            <h5 class="card-title fw-bold text-danger">{{ meeting.lawyer_name }}</h5>
+                            <p class="card-text mb-0">
+                                <i class="fas fa-calendar-times me-2"></i> Scheduled Date: {{ meeting.date }} at {{ meeting.time }}
+                            </p>
+                            <p class="card-text mb-0 small text-muted mt-1">
+                                Refund Status:
+                                {% if meeting.payment_status == 'refunded' %}
+                                    <span class="text-success fw-bold">Refunded</span>
+                                {% elif meeting.payment_status == 'paid' %}
+                                    <span class="text-warning fw-bold">Refund Pending</span>
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
+
+                            <span class="badge bg-danger me-3 p-2"><i class="fas fa-ban"></i> Cancelled</span>
+
+                            <a href="{{ url_for('consultation_details', consultation_id=meeting.id) }}" class="btn btn-sm btn-info text-white shadow-sm">
+                                <i class="fa-solid fa-circle-info"></i> Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-success">You have no cancelled consultations.</div>
+            {% endfor %}
         </div>
 
     </div>

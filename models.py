@@ -168,25 +168,27 @@ class Consultation(db.Model):
             'lawyer_name': self.lawyer.fullname if self.lawyer else 'N/A',
             'meeting_url': self.meeting_url,
             'location_gmaps': self.location_gmaps,
+            'price' : self.price,
+            'is_paid': self.payment_status == 'paid'
         }
 
-    def to_dict_online(self):
+    def to_dict_online(self, include_lawyer=False):
         data = self.to_base_dict()
         data['meeting_info'] = self.meeting_url
         data['meeting_type_label'] = 'Zoom/Online Link'
         data['meeting_icon'] = 'fas fa-video'
         return data
 
-    def to_dict_offline(self):
+    def to_dict_offline(self, include_lawyer=False):
         data = self.to_base_dict()
         data['meeting_info'] = self.location_gmaps
         data['meeting_type_label'] = 'Location (Google Maps)'
         data['meeting_icon'] = 'fas fa-map-marker-alt'
         return data
 
-    def to_dict(self):
+    def to_dict(self, include_lawyer=False):
         if self.type == 'Online':
-            return self.to_dict_online()
+            return self.to_dict_online(include_lawyer=include_lawyer)
         elif self.type == 'Offline':
-            return self.to_dict_offline()
+            return self.to_dict_offline(include_lawyer=include_lawyer)
         return self.to_base_dict()
