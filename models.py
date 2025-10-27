@@ -121,6 +121,7 @@ class Consultation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     type = db.Column(db.String(10), nullable=False)
+    price = db.Column(db.Float, nullable=False)
 
     meeting_url = db.Column(db.String(300), nullable=True)
     location_gmaps = db.Column(db.String(300), nullable=True)

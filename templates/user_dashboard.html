@@ -3,133 +3,133 @@
 {% block title %}Dashboard | {{ session.get('username') }}{% endblock %}
 
 {% block content %}
+<div class="container mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
 
-    <div class="container mt-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
+<header class="py-5 text-white" style="background-color: #004c99;">
+    <div class="container text-center">
 
-    <header class="py-5 text-white" style="background-color: #004c99;">
-        <div class="container text-center">
+        <h1 class="fw-bold display-4">Hello, {{ session.get('username') }}!</h1>
+        <p class="lead mt-3">Welcome to your personalized JuristHUB dashboard.</p>
+        <p class="small mb-2">
+        <i class="fas fa-envelope me-1"></i> Email:
+        <span class="text-light fw-bold">{{ session.get('email') }}</span>
+        </p>
+        <p class="small">Your role: <span class="badge bg-light text-dark">{{ session.get('status') | default('Client') }}</span></p>
 
-            <h1 class="fw-bold display-4">Hello, {{ session.get('username') }}!</h1>
-            <p class="lead mt-3">Welcome to your personalized JuristHUB dashboard.</p>
-            <p class="small mb-2">
-            <i class="fas fa-envelope me-1"></i> Email:
-            <span class="text-light fw-bold">{{ session.get('email') }}</span>
-            </p>
-            <p class="small">Your role: <span class="badge bg-light text-dark">{{ session.get('status') | default('Client') }}</span></p>
+        <hr class="border-light opacity-50 my-4">
 
-            <hr class="border-light opacity-50 my-4">
-
-            <div class="d-flex justify-content-center align-items-center mb-4">
-                <h3 class="me-3 mb-0 fw-light">
-                    Your Balance:
-                    <span class="fw-bold text-warning">
-                        <i class="fa-solid fa-dollar-sign"></i>
-                        {{ "%.2f" | format(session['balance'] | float) }}
-                    </span>
-                </h3>
-                <a href="/wallet/topup" class="btn btn-success btn-sm shadow">
-                    <i class="fas fa-plus-circle me-1"></i> Top Up
-                </a>
-            </div>
-            <div class="mt-4">
-                <a href="{{ url_for('edit_profile', user_id=session['user_id']) }}" class="btn btn-warning btn-lg shadow">
-                    <i class="fas fa-edit me-2"></i>Edit Account Details
-                </a>
-            </div>
-
+        <div class="d-flex justify-content-center align-items-center mb-4">
+            <h3 class="me-3 mb-0 fw-light">
+                Your Balance:
+                <span class="fw-bold text-warning">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                    {{ "%.2f" | format(session['balance'] | float) }}
+                </span>
+            </h3>
+            <a href="/wallet/topup" class="btn btn-success btn-sm shadow">
+                <i class="fas fa-plus-circle me-1"></i> Top Up
+            </a>
         </div>
-    </header>
+        <div class="mt-4">
+            <a href="{{ url_for('edit_profile', user_id=session['user_id']) }}" class="btn btn-warning btn-lg shadow">
+                <i class="fas fa-edit me-2"></i>Edit Account Details
+            </a>
+        </div>
 
-    <div class="py-5">
-        <div class="row">
+    </div>
+</header>
 
-            <div class="col-12 mb-5">
-                <h2 class="mb-4 text-dark">Upcoming Consultations ({{ upcoming_meetings | length }})</h2>
-                {% for meeting in upcoming_meetings %}
-                    <div class="card shadow-sm mb-3 border-primary">
+<div class="py-5 container">
+    <div class="row">
+
+        <div class="col-12 mb-5">
+            <h2 class="mb-4 text-dark">Upcoming Consultations ({{ upcoming_meetings | length }})</h2>
+            {% for meeting in upcoming_meetings %}
+                <div class="card shadow-sm mb-3 border-primary">
+                    <div class="card-body row align-items-center">
+
+                        <div class="col-md-7">
+                            <h5 class="card-title fw-bold text-primary">{{ meeting.lawyer_name }}</h5>
+                            <p class="card-text mb-1">
+                                <i class="fas fa-calendar-alt me-2"></i> Date: <span class="fw-bold">{{ meeting.date }} at {{ meeting.time }}</span>
+                            </p>
+                            <p class="card-text mb-0">
+                                <i class="fas fa-hashtag me-2"></i> Meeting ID: {{ meeting.id }}
+                            </p>
+                        </div>
+
+                        <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
+
+                            {% if meeting.is_paid %}
+                                <span class="badge bg-success me-3 p-2"><i class="fas fa-check-circle"></i> Paid</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark me-3 p-2"><i class="fas fa-exclamation-triangle"></i> Pending Payment</span>
+                                <button class="btn btn-sm btn-success me-3">
+                                    <i class="fa-solid fa-credit-card"></i> Pay Now</button>
+                            {% endif %}
+
+                            <a href="{{ url_for('consultation_details', consultation_id=meeting.id) }}" class="btn btn-sm btn-info text-white shadow-sm">
+                                <i class="fa-solid fa-circle-info"></i> Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">You have no upcoming consultations booked.</div>
+            {% endfor %}
+        </div>
+
+        <hr class="my-4">
+
+        <div class="col-12">
+
+            <h2 class="mb-4 text-dark d-flex justify-content-between align-items-center">
+                Completed Consultations
+                <button class="btn btn-outline-secondary" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#completedList"
+                        aria-expanded="false" aria-controls="completedList">
+                    <i class="fas fa-chevron-down"></i> Show/Hide ({{ completed_meetings | length }})
+                </button>
+            </h2>
+
+            <div class="collapse" id="completedList">
+                {% for meeting in completed_meetings %}
+                    <div class="card shadow-sm mb-3 border-secondary">
                         <div class="card-body row align-items-center">
-
                             <div class="col-md-7">
-                                <h5 class="card-title fw-bold text-primary">{{ meeting.lawyer_name }}</h5>
-                                <p class="card-text mb-1">
-                                    <i class="fas fa-calendar-alt me-2"></i> Date: <span class="fw-bold">{{ meeting.date }} at {{ meeting.time }}</span>
-                                </p>
+                                <h5 class="card-title fw-bold text-secondary">{{ meeting.lawyer_name }}</h5>
                                 <p class="card-text mb-0">
-                                    <i class="fas fa-hashtag me-2"></i> Meeting ID: {{ meeting.id }}
+                                    <i class="fas fa-calendar-check me-2"></i> Date: {{ meeting.date }} at {{ meeting.time }}
                                 </p>
                             </div>
+                            <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
 
-                            <div class="col-md-5 text-md-end mt-3 mt-md-0">
+                                <span class="badge bg-dark me-3 p-2"><i class="fas fa-clock"></i> Completed</span>
 
-                                {% if meeting.is_paid %}
-                                    <span class="badge bg-success me-2 p-2"><i class="fas fa-check-circle"></i> Paid</span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark me-2 p-2"><i class="fas fa-exclamation-triangle"></i> Pending Payment</span>
-                                    <button class="btn btn-sm btn-success me-2">
-                                        <i class="fa-solid fa-credit-card"></i>
-                                        Pay Now</button>
-                                {% endif %}
-
-                                <button class="btn btn-sm btn-danger">
-                                    <i class="fa-solid fa-xmark"></i>
-                                    Cancel</button>
+                                <a href="{{ url_for('consultation_details', consultation_id=meeting.id) }}" class="btn btn-sm btn-info text-white shadow-sm">
+                                    <i class="fa-solid fa-circle-info"></i> Details
+                                </a>
                             </div>
                         </div>
                     </div>
                 {% else %}
-                    <div class="alert alert-info">You have no upcoming consultations booked.</div>
+                    <div class="alert alert-warning">You have no completed consultations yet.</div>
                 {% endfor %}
             </div>
-
-            <hr class="my-4">
-
-            <div class="col-12">
-
-                <h2 class="mb-4 text-dark d-flex justify-content-between align-items-center">
-                    Completed Consultations
-                    <button class="btn btn-outline-secondary" type="button"
-                            data-bs-toggle="collapse" data-bs-target="#completedList"
-                            aria-expanded="false" aria-controls="completedList">
-                        <i class="fas fa-chevron-down"></i> Show/Hide ({{ completed_meetings | length }})
-                    </button>
-                </h2>
-
-                <div class="collapse" id="completedList">
-                    {% for meeting in completed_meetings %}
-                        <div class="card shadow-sm mb-3 border-secondary">
-                            <div class="card-body row align-items-center">
-                                <div class="col-md-7">
-                                    <h5 class="card-title fw-bold text-secondary">{{ meeting.lawyer_name }}</h5>
-                                    <p class="card-text mb-0">
-                                        <i class="fas fa-calendar-check me-2"></i> Date: {{ meeting.date }} at {{ meeting.time }}
-                                    </p>
-                                </div>
-                                <div class="col-md-5 text-md-end mt-3 mt-md-0">
-                                    <span class="badge bg-dark me-2 p-2"><i class="fas fa-clock"></i> Completed</span>
-                                    <button class="btn btn-sm btn-info text-white">
-                                        <i class="fa-solid fa-pen-nib"></i>
-                                        Leave Review</button>
-                                </div>
-                            </div>
-                        </div>
-                    {% else %}
-                        <div class="alert alert-warning">You have no completed consultations yet.</div>
-                    {% endfor %}
-                </div>
-            </div>
-
         </div>
+
     </div>
+</div>
 
 {% endblock %}

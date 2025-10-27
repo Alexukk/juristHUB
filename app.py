@@ -342,31 +342,45 @@ def user_dashboard(user_id):
         flash('Access denied. You can only view your own profile.', 'danger')
         return redirect(url_for('index'))
 
-    upcoming_meetings = [
-        {
-            'lawyer_name': 'Dr. Alan Smith (Tax Law)',
-            'date': '2025-11-05',
-            'time': '14:00',
-            'is_paid': True,
-            'id': 101
-        },
-        {
-            'lawyer_name': 'Ms. Jane Doe (Family Law)',
-            'date': '2025-10-30',
-            'time': '10:30',
-            'is_paid': False,
-            'id': 102
-        }
-    ]
+    all_consultations = db.session.execute(
+        db.select(Consultation)
+        .filter_by(client_id=user_id)
+        .order_by(Consultation.date.asc())
+    ).scalars().all()
 
-    completed_meetings = [
-        {
-            'lawyer_name': 'Mr. Bob Johnson (Real Estate)',
-            'date': '2025-09-15',
-            'time': '11:00',
-            'id': 95
-        }
-    ]
+
+    lawyer_ids = {c.lawyer_user_id for c in all_consultations}
+    lawyers = db.session.execute(
+        db.select(User.id, User.fullname)
+        .filter(User.id.in_(lawyer_ids))
+    ).all()
+    lawyer_names = {id: fullname for id, fullname in lawyers}
+
+    now_utc = datetime.now(timezone.utc)
+
+    upcoming_meetings = []
+    completed_meetings = []
+
+
+    for c in all_consultations:
+
+        if c.status in ['completed', 'cancelled']:
+            target_list = completed_meetings
+
+        elif c.status in ['scheduled', 'pending'] or c.date.replace(tzinfo=timezone.utc) > now_utc:
+            target_list = upcoming_meetings
+
+        else:
+            continue
+
+        # Формирование словаря данных
+        target_list.append({
+            'lawyer_name': lawyer_names.get(c.lawyer_user_id, 'Unknown Lawyer'),
+            'date': c.date.strftime('%Y-%m-%d'),
+            'time': c.date.strftime('%H:%M'),
+            'is_paid': c.payment_status == 'paid',
+            'id': c.id
+        })
 
     return render_template(
         'user_dashboard.html',
@@ -474,7 +488,8 @@ def payment_provider(lawyer_id):
 
             # --- ПЕРЕДАЕМ СКОПИРОВАННЫЕ ЗНАЧЕНИЯ ---
             meeting_url=meeting_url,
-            location_gmaps=location_gmaps
+            location_gmaps=location_gmaps,
+            price=price_usd
             # ----------------------------------------
         )
         db.session.add(new_consultation)
@@ -632,15 +647,58 @@ def payment_canceled():
 
 
 
-@app.route('/consultation/<int:consultation_id>')
+@app.route('/consultation/<int:consultation_id>', methods=['GET', 'POST'])
 @login_required
 def consultation_details(consultation_id):
-
     consultation = db.session.get(Consultation, consultation_id)
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'cancel':
+
+            # ... (проверки consultation.payment_status и т.д.) ...
+
+            if consultation.payment_status == 'paid':
+                client = db.session.get(User, consultation.client_id)
+
+                if client:
+                    refund_amount = Decimal(str(consultation.price))  # <-- ФИКС ЗДЕСЬ
+
+                    # Теперь оба операнда Decimal
+                    client.balance += refund_amount
+
+                    # Обновление сессии и flash-сообщение
+                    if session.get('user_id') == client.id:
+                        session['balance'] = float(
+                            client.balance)  # <-- Также может потребоваться приведение обратно к float для сессии/шаблонов, если они ожидают float
+
+                    consultation.payment_status = 'refunded'
+                    flash(f'Consultation cancelled. ${refund_amount:.2f} refunded to your balance.', 'success')
+                else:
+                    # КЛИЕНТ НЕ НАЙДЕН (NoneType): Это предотвращает сбой.
+                    # Мы не можем вернуть средства, но можем уведомить администратора.
+                    # Пока отправляем только Flash-сообщение.
+                    flash(
+                        f'Consultation cancelled, but user (ID: {consultation.client_id}) record is missing. Refund required manual check.',
+                        'danger')
+
+            elif consultation.payment_status == 'unpaid':
+                # Если не оплачено, просто отменяем без возврата средств
+                flash('Consultation cancelled successfully. No refund necessary as payment was pending.', 'success')
+
+            # 2. Обновляем статус консультации на "cancelled" в любом случае
+            consultation.status = 'cancelled'
+
+            # 3. Сохраняем все изменения (статус консультации и, возможно, баланс клиента)
+            db.session.commit()
+
+            return redirect(url_for('user_dashboard', user_id=session['user_id']))
+
 
     if not consultation:
         flash('Consultation not found.', 'danger')
-        return redirect(url_for('my_consultations'))
+
+        return redirect(url_for('user_dashboard', user_id=session['user_id']))
 
 
     is_client = consultation.client_id == session['user_id']

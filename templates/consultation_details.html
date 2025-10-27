@@ -119,6 +119,39 @@
                     {% endif %}
 
 
+                    {% if is_client %}
+                        <h5 class="mt-5 mb-3 text-secondary border-top pt-3">Your Actions</h5>
+
+                        {% if consultation.status == 'completed' %}
+                            <a href="/" class="btn btn-lg btn-warning w-100 shadow-sm">
+                                <i class="fas fa-pen-nib me-1"></i> Leave Review
+                            </a>
+                            <p class="text-muted small mt-2 text-center">
+                                The consultation is complete. Share your feedback.
+                            </p>
+
+                        {% elif consultation.status not in ['completed', 'cancelled'] %}
+                            <form method="POST" action="{{ url_for('consultation_details', consultation_id=consultation.id) }}">
+                                <button type="submit"
+                                        name="action"
+                                        value="cancel"
+                                        class="btn btn-lg btn-outline-danger w-100 shadow-sm">
+                                    <i class="fas fa-times-circle me-1"></i> Cancel Consultation
+                                </button>
+                                <p class="text-muted small mt-2 text-center">
+                                    Cancelling will refund the payment to your balance.
+                                </p>
+                            </form>
+
+                        {% else %}
+                            <p class="text-muted small mt-2 text-center">
+                                This consultation has been formally cancelled.
+                            </p>
+                        {% endif %}
+
+                    {% endif %}
+
+
                     {% if not is_client and consultation.lawyer_user_id == session['user_id'] %}
                         <h5 class="mt-5 mb-3 text-secondary border-top pt-3">Lawyer Actions</h5>
 
@@ -171,8 +204,8 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
 
-        // 🚨 ФИКС: Используем строку ISO, созданную в Python.
-        // JS интерпретирует это как UTC из-за явного указания часового пояса.
+        // --- ГАРАНТИРОВАННЫЙ ФИКС ДЛЯ UTC/ISO ФОРМАТА ---
+        // Используем строку ISO, переданную из Python (consultation.js_date_iso).
         const consultationDateString = "{{ consultation.js_date_iso }}";
 
         // Создаем объект Date. JS гарантированно использует UTC.
@@ -185,7 +218,7 @@
         const joinInfo = document.getElementById('join-info');
 
         function checkTime() {
-            // Текущее время клиента. JS автоматически пересчитает UTC -> Локальное время клиента.
+            // Текущее время клиента.
             const now = new Date();
 
             // Сравниваем объекты Date.
@@ -193,7 +226,7 @@
                 // Активировать кнопку
                 joinButton.classList.remove('btn-secondary');
                 joinButton.classList.add('btn-success');
-                joinButton.style.pointerEvents = 'auto'; // Включаем клик
+                joinButton.style.pointerEvents = 'auto';
                 joinButton.removeAttribute('disabled');
                 joinButton.removeAttribute('aria-disabled');
                 joinButton.innerHTML = '<i class="fas fa-external-link-alt me-2"></i> Join Video Call Now';
