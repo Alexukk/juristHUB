@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Failed{% endblock %}
+
+{% block content %}
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-7 col-lg-6">
+
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-danger text-white text-center rounded-top border-0 py-4">
+                    <i class="fas fa-times-circle fa-4x mb-3"></i>
+                    <h1 class="h3 fw-bold mb-0">Payment Failed</h1>
+                </div>
+
+                <div class="card-body p-4 text-center">
+                    <p class="lead text-dark mt-3">
+                        We apologize, but your payment could not be processed at this time.
+                    </p>
+                    <p class="text-muted">
+                        This usually happens due to a card decline, an issue with the payment method, or the payment being cancelled by you.
+                    </p>
+                    <p class="mb-4 fw-bold">
+                        Please check your payment details or try a different method.
+                    </p>
+
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('all_lawyers') }}" class="btn btn-warning btn-lg shadow-sm">
+                            <i class="fas fa-arrow-left me-2"></i> Browse Lawyers
+                        </a>
+
+                        <a href="{{ url_for('user_dashboard', user_id=session['user_id']) }}" class="btn btn-outline-secondary btn-sm">
+                            Go to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

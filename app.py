@@ -630,14 +630,7 @@ def payment_success():
 
 @app.route('/consultation/payment/cancel')
 def payment_canceled():
-    consultation_id = request.args.get('consultation_id')
-    consultation = db.session.get(Consultation, consultation_id)
-
-    if consultation:
-        db.session.delete(consultation)
-        db.session.commit()
-
-    return 'Payment canceled. The booking has been deleted.'
+    return render_template('payment_failed.html')
 
 
 
