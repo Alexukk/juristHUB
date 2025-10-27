@@ -633,7 +633,6 @@ def payment_canceled():
     return render_template('payment_failed.html')
 
 
-
 @app.route('/consultation/<int:consultation_id>', methods=['GET', 'POST'])
 @login_required
 def consultation_details(consultation_id):
@@ -645,26 +644,46 @@ def consultation_details(consultation_id):
         if action == 'cancel':
 
             if consultation.payment_status == 'paid':
+
+                # 1. Возврат средств клиенту
                 client = db.session.get(User, consultation.client_id)
+                refund_amount = Decimal(str(consultation.price))
 
                 if client:
-                    refund_amount = Decimal(str(consultation.price))
                     client.balance += refund_amount
 
                     if session.get('user_id') == client.id:
                         session['balance'] = float(client.balance)
 
-                    consultation.payment_status = 'refunded'
                     flash(f'Consultation cancelled. ${refund_amount:.2f} refunded to your balance.', 'success')
+                    consultation.payment_status = 'refunded'
                 else:
                     consultation.payment_status = 'refund_pending_manual'
                     flash(
                         f'Consultation cancelled, but user (ID: {consultation.client_id}) record is missing. Refund required manual check.',
                         'danger')
 
+                # 2. Снятие комиссии с баланса юриста
+                lawyer = db.session.get(User, consultation.lawyer_user_id)
+
+                if lawyer:
+                    full_price = Decimal(str(consultation.price))
+                    # Расчет суммы, которую нужно снять (заработок юриста)
+                    earnings_to_reverse = full_price * (Decimal('1.00') - PLATFORM_COMMISSION_RATE)
+
+                    lawyer.balance -= earnings_to_reverse
+
+                    # Логика для предотвращения отрицательного баланса
+                    if lawyer.balance < 0:
+                        lawyer.balance = Decimal('0.00')
+                        flash(f'Warning: Lawyer {lawyer.fullname} had insufficient balance to cover the refund.',
+                              'warning')
+
             elif consultation.payment_status == 'unpaid':
                 flash('Consultation cancelled successfully. No refund necessary as payment was pending.', 'success')
+                # Здесь не нужно трогать баланс юриста или клиента
 
+            # 3. Обновление статуса консультации и сохранение
             consultation.status = 'cancelled'
             db.session.commit()
 
