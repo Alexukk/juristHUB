@@ -13,9 +13,10 @@ from models import User, Review, Consultation
 from sqlalchemy import func, case, text
 import stripe
 from datetime import date
-
+from decimal import Decimal
 
 load_dotenv()
+PLATFORM_COMMISSION_RATE = Decimal('0.10')
 
 stripe.api_key = os.getenv("STRIPE_TEST_PRIVATE")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -424,17 +425,16 @@ def edit_profile(user_id):
 
 # STRIPE PAYMENTS LOGIC
 
+# app.py
+
 @app.route('/consultation/<int:lawyer_id>/checkout', methods=['POST', 'GET'])
 @login_required
 def payment_provider(lawyer_id):
-
     if request.method == 'POST':
 
         client_id = session.get('user_id')
         if not client_id:
-
             return redirect(url_for('login_route'))
-
 
         date_str = request.form.get('booking_date')
         time_str = request.form.get('booking_time')
@@ -454,16 +454,33 @@ def payment_provider(lawyer_id):
         except (ValueError, TypeError) as e:
             return f"Invalid data (price or datetime): {e}", 500
 
+        # --- НОВАЯ ЛОГИКА КОПИРОВАНИЯ ССЫЛКИ/АДРЕСА ---
+        meeting_url = None
+        location_gmaps = None
+
+        if consultation_type == 'Online':
+            meeting_url = lawyer.zoom_link  # Используем zoom_link, если это у вас есть
+        elif consultation_type == 'Offline':
+            location_gmaps = lawyer.office_address
+        # ---------------------------------------------------
+
         new_consultation = Consultation(
             client_id=client_id,
             lawyer_user_id=lawyer_id,
             date=booking_datetime,
             type=consultation_type,
             status='pending',
-            payment_status='unpaid'
+            payment_status='unpaid',
+
+            # --- ПЕРЕДАЕМ СКОПИРОВАННЫЕ ЗНАЧЕНИЯ ---
+            meeting_url=meeting_url,
+            location_gmaps=location_gmaps
+            # ----------------------------------------
         )
         db.session.add(new_consultation)
         db.session.commit()
+        print(meeting_url)
+        print(location_gmaps)
 
         # 4. Создание сессии Stripe Checkout
         stripe_session = stripe.checkout.Session.create(
@@ -482,7 +499,6 @@ def payment_provider(lawyer_id):
             mode='payment',
             metadata={'consultation_id': new_consultation.id},
 
-            # URL-адреса для перенаправления
             success_url=url_for('payment_success', _external=True) + '?consultation_id=' + str(new_consultation.id),
             cancel_url=url_for('payment_canceled', _external=True) + '?consultation_id=' + str(new_consultation.id),
         )
@@ -541,7 +557,6 @@ def stripe_webhook():
                         location_info = "Error: Lawyer not found to set location."
 
 
-                    # Устанавливаем статус 'paid'
                     consultation.payment_status = 'paid'
                     consultation.status = 'scheduled'
 
@@ -560,12 +575,48 @@ def stripe_webhook():
 @app.route('/consultation/payment/success')
 def payment_success():
     consultation_id = request.args.get('consultation_id')
-    consultation = db.session.get(Consultation, consultation_id)
 
-    if consultation:
-        return f"Booking confirmed! We are now verifying your payment via Stripe. Consultation ID: {consultation_id}. Check your dashboard soon."
+    try:
+        consultation = db.session.get(Consultation, int(consultation_id))
+    except (TypeError, ValueError):
+        return "Error: Invalid Consultation ID.", 400
 
-    return "Error: Booking not found."
+    if not consultation:
+        return "Error: Booking not found.", 404
+
+    if consultation.payment_status != 'paid':
+        try:
+            lawyer = db.session.get(User, consultation.lawyer_user_id)
+            if not lawyer:
+
+                print(f"CRITICAL: Lawyer ID {consultation.lawyer_user_id} not found for commission.")
+
+            full_price = Decimal(lawyer.price) if lawyer else Decimal('0.00')
+
+            earnings = full_price * (Decimal('1.00') - PLATFORM_COMMISSION_RATE)
+
+
+            consultation.payment_status = 'paid'
+            consultation.status = 'scheduled'
+
+
+            if lawyer:
+                lawyer.balance += earnings
+                db.session.add(lawyer)
+                print(
+                    f"💰 SUCCESS: Consultation {consultation_id} paid. Lawyer {lawyer.fullname} earned ${earnings:.2f}")
+
+            db.session.add(consultation)
+            db.session.commit()
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ DB/Commission Error in payment_success: {e}")
+            return f"Internal Server Error during finalization: {e}", 500
+
+
+    flash('Payment successful! Your consultation is now confirmed.', 'success')
+    return redirect(url_for('consultation_details', consultation_id=consultation_id))
 
 
 @app.route('/consultation/payment/cancel')
@@ -574,11 +625,41 @@ def payment_canceled():
     consultation = db.session.get(Consultation, consultation_id)
 
     if consultation:
-        # Удаляем бронирование, так как оплаты не было и она не ожидается
         db.session.delete(consultation)
         db.session.commit()
 
     return 'Payment canceled. The booking has been deleted.'
+
+
+
+@app.route('/consultation/<int:consultation_id>')
+@login_required
+def consultation_details(consultation_id):
+
+    consultation = db.session.get(Consultation, consultation_id)
+
+    if not consultation:
+        flash('Consultation not found.', 'danger')
+        return redirect(url_for('my_consultations'))
+
+
+    is_client = consultation.client_id == session['user_id']
+    is_lawyer = consultation.lawyer_user_id == session['user_id']
+
+    if not (is_client or is_lawyer or session['status'] == 'Admin'):
+        flash('You do not have access to this consultation.', 'danger')
+        return redirect(url_for('my_consultations'))
+
+    consultation_data = consultation.to_dict()
+    consultation_data['js_date_iso'] = consultation.date.isoformat()
+    lawyer_name = db.session.get(User, consultation.lawyer_user_id).fullname
+
+    return render_template(
+        'consultation_details.html',
+        consultation=consultation_data,
+        lawyer_name=lawyer_name,
+        is_client=is_client,
+    )
 
 
 with app.app_context():

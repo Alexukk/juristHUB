@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Consultation Details with {{ lawyer_name }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} mb-4 border-0 shadow-sm" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card shadow-lg border-0">
+
+                <div class="card-header bg-dark text-white rounded-top border-0">
+                    <h4 class="mb-0 fs-5 fw-light">
+                        Details of Consultation with: <i class="fa-solid fa-user-tie" style="color: #FFD43B;"></i> <span class="fw-bold">{{ lawyer_name }}</span>
+                    </h4>
+                </div>
+
+                <div class="card-body p-4">
+
+                    <h5 class="mb-3 text-secondary border-bottom pb-2">Basic Information</h5>
+
+                    <div class="row row-cols-md-2 mb-4 g-3">
+
+                        <div class="col">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <p class="mb-1 text-muted"><i class="fas fa-calendar-alt me-2 text-primary"></i> Date & Time (UTC):</p>
+                                <p class="fw-bold fs-6 mb-0">{{ consultation.date }}</p>
+                            </div>
+                        </div>
+
+                        <div class="col">
+                            <div class="p-3 border rounded bg-light h-100">
+                                <p class="mb-1 text-muted"><i class="fas fa-handshake me-2 text-secondary"></i> Type:</p>
+                                <p class="fw-bold fs-6 mb-0">{{ consultation.type }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4 mb-3 text-secondary border-bottom pb-2">Status & Payment</h5>
+
+                    <div class="row row-cols-md-2 mb-4 g-3">
+
+                         <div class="col">
+                             <div class="p-3 border rounded h-100">
+                                <p class="mb-1 text-muted"><i class="fas fa-dollar-sign me-2 text-success"></i> Payment Status:</p>
+                                <p class="fw-bold fs-6 mb-0 text-{{ 'success' if consultation.payment_status == 'paid' else 'warning' }}">{{ consultation.payment_status | capitalize }}</p>
+                            </div>
+                        </div>
+
+                        <div class="col">
+                             <div class="p-3 border rounded h-100">
+                                <p class="mb-1 text-muted"><i class="fas fa-info-circle me-2 text-info"></i> Consultation Status:</p>
+                                <p class="fw-bold fs-6 mb-0">{{ consultation.status | capitalize }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="mt-4 mb-3 text-secondary border-top pt-3">Meeting Location</h5>
+
+                    {% if consultation.payment_status == 'paid' %}
+                        <div class="p-4 border rounded bg-white shadow-sm">
+
+                            {% if consultation.type == 'Online' %}
+                                <p class="lead mb-3 text-dark">
+                                    <i class="fas fa-video me-2 text-danger"></i>
+                                    Your Video Link:
+                                </p>
+
+                                {% if consultation.meeting_url %}
+                                    <div id="join-button-container">
+                                        <a href="{{ consultation.meeting_url }}"
+                                           id="join-video-call-btn"
+                                           target="_blank"
+                                           class="btn btn-lg btn-secondary w-100 shadow-sm"
+                                           style="pointer-events: none;"
+                                           aria-disabled="true"
+                                           disabled>
+                                            <i class="fas fa-clock me-2"></i> Activating soon...
+                                        </a>
+                                        <p class="text-muted mt-2 mb-0 small text-center" id="join-info">
+                                            The link will activate 5 minutes before the scheduled time.
+                                        </p>
+                                    </div>
+                                {% else %}
+                                    <p class="text-danger mb-0 small">Video link is missing. Contact support immediately.</p>
+                                {% endif %}
+
+                            {% elif consultation.type == 'Offline' %}
+                                <p class="lead mb-3 text-dark">
+                                    <i class="fas fa-map-marker-alt me-2 text-danger"></i>
+                                    Office Address:
+                                </p>
+                                {% if consultation.location_gmaps %}
+                                    <p class="mb-3 fw-bold">{{ consultation.location_gmaps }}</p>
+                                    <a href="https://www.google.com/maps/search/?api=1&query={{ consultation.location_gmaps | urlencode }}"
+                                       target="_blank"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-map-pin me-1"></i> View on Google Maps
+                                    </a>
+                                {% else %}
+                                    <p class="text-danger mb-0 small">Office address is missing. Contact support.</p>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning text-center border-0 mb-0 shadow-sm">
+                            <i class="fas fa-lock me-2"></i> Meeting details will be available after payment confirmation.
+                        </div>
+                    {% endif %}
+
+
+                    {% if not is_client and consultation.lawyer_user_id == session['user_id'] %}
+                        <h5 class="mt-5 mb-3 text-secondary border-top pt-3">Lawyer Actions</h5>
+
+                        <form method="POST" action="{{ url_for('consultation_details', consultation_id=consultation.id) }}" class="d-flex flex-wrap gap-3">
+
+                            {% if consultation.status in ['scheduled', 'pending'] and consultation.payment_status == 'paid' %}
+                                <button type="submit"
+                                        name="action"
+                                        value="start"
+                                        class="btn btn-primary btn-sm flex-grow-1 shadow-sm">
+                                    <i class="fas fa-play-circle me-1"></i> Start
+                                </button>
+                            {% endif %}
+
+                            {% if consultation.status == 'started' %}
+                                <button type="submit"
+                                        name="action"
+                                        value="complete"
+                                        class="btn btn-success btn-sm flex-grow-1 shadow-sm">
+                                    <i class="fas fa-check-circle me-1"></i> Complete
+                                </button>
+                            {% endif %}
+
+                            {% if consultation.status != 'completed' and consultation.status != 'cancelled' %}
+                                <button type="submit"
+                                        name="action"
+                                        value="cancel"
+                                        class="btn btn-outline-danger btn-sm flex-grow-1 shadow-sm">
+                                    <i class="fas fa-times-circle me-1"></i> Cancel
+                                </button>
+                            {% endif %}
+                        </form>
+                        {% if consultation.payment_status != 'paid' and not consultation.status == 'cancelled' %}
+                            <p class="text-warning small mt-3 mb-0">Cannot change status until payment is 'paid'.</p>
+                        {% endif %}
+                    {% endif %}
+
+                    <a href="{{ url_for('user_dashboard', user_id=session['user_id'])}}" class="btn btn-outline-dark mt-4 shadow-sm">
+                        <i class="fas fa-arrow-left me-2"></i> Back to Consultations List
+                    </a>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+{% if consultation.type == 'Online' and consultation.meeting_url %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        // 🚨 ФИКС: Используем строку ISO, созданную в Python.
+        // JS интерпретирует это как UTC из-за явного указания часового пояса.
+        const consultationDateString = "{{ consultation.js_date_iso }}";
+
+        // Создаем объект Date. JS гарантированно использует UTC.
+        const scheduledTime = new Date(consultationDateString);
+
+        // Время, когда кнопка должна активироваться (за 5 минут до)
+        const activationTime = new Date(scheduledTime.getTime() - (5 * 60 * 1000));
+
+        const joinButton = document.getElementById('join-video-call-btn');
+        const joinInfo = document.getElementById('join-info');
+
+        function checkTime() {
+            // Текущее время клиента. JS автоматически пересчитает UTC -> Локальное время клиента.
+            const now = new Date();
+
+            // Сравниваем объекты Date.
+            if (now.getTime() >= activationTime.getTime()) {
+                // Активировать кнопку
+                joinButton.classList.remove('btn-secondary');
+                joinButton.classList.add('btn-success');
+                joinButton.style.pointerEvents = 'auto'; // Включаем клик
+                joinButton.removeAttribute('disabled');
+                joinButton.removeAttribute('aria-disabled');
+                joinButton.innerHTML = '<i class="fas fa-external-link-alt me-2"></i> Join Video Call Now';
+
+                if (joinInfo) {
+                    joinInfo.textContent = 'The call is now active. Click to join.';
+                    joinInfo.classList.remove('text-muted');
+                    joinInfo.classList.add('text-success');
+                }
+
+                // Остановить проверку
+                clearInterval(timerInterval);
+            }
+        }
+
+        // Запускаем проверку сразу
+        checkTime();
+
+        // Запускаем интервал для периодической проверки (каждые 10 секунд)
+        const timerInterval = setInterval(checkTime, 10000);
+    });
+</script>
+{% endif %}
+
+{% endblock %}

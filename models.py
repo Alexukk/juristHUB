@@ -165,6 +165,8 @@ class Consultation(db.Model):
             'review_id': self.review.id if self.review else None,
             'client_name': self.client.fullname if self.client else 'N/A',
             'lawyer_name': self.lawyer.fullname if self.lawyer else 'N/A',
+            'meeting_url': self.meeting_url,
+            'location_gmaps': self.location_gmaps,
         }
 
     def to_dict_online(self):
