@@ -54,6 +54,12 @@ class User(db.Model):
         back_populates='lawyer',
         lazy='dynamic'
     )
+    time_slots = db.relationship(
+        'TimeSlot',
+        foreign_keys='[TimeSlot.lawyer_id]',
+        back_populates='lawyer',
+        lazy='dynamic'
+    )
 
     # Rows for admin
     isAdmin = db.Column(db.Boolean, nullable=True, default=False)
@@ -150,6 +156,15 @@ class Consultation(db.Model):
         uselist=False,
         lazy='joined'
     )
+    time_slot_id = db.Column(db.Integer, db.ForeignKey('time_slot.id'), nullable=True)
+
+    time_slot = db.relationship(
+        'TimeSlot',
+        foreign_keys=[time_slot_id],
+        backref=db.backref('consultation_ref', uselist=False),
+        uselist=False
+    )
+
 
     def __repr__(self):
         return f"Consultation(ID: {self.id}, Status: {self.status}, Type: {self.type})"
@@ -192,3 +207,28 @@ class Consultation(db.Model):
         elif self.type == 'Offline':
             return self.to_dict_offline(include_lawyer=include_lawyer)
         return self.to_base_dict()
+
+
+class TimeSlot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lawyer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    slot_datetime = db.Column(db.DateTime, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='available')  # available, break, booked
+
+    __table_args__ = (
+        db.UniqueConstraint('lawyer_id', 'slot_datetime', name='unique_lawyer_slot'),
+    )
+
+    # Relationships
+    lawyer = db.relationship('User', foreign_keys=[lawyer_id], back_populates='time_slots')
+
+    consultation_id = db.Column(db.Integer, db.ForeignKey('consultation.id'), nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'lawyer_id': self.lawyer_id,
+            'slot_datetime': self.slot_datetime.strftime('%Y-%m-%d %H:%M'),
+            'status': self.status,
+            'consultation_id': self.consultation_id
+        }

@@ -182,6 +182,24 @@ with app.app_context():
 
         db.session.add_all(reviews_to_add)
         db.session.commit()
+        from TimeSlotUTLIS import generate_time_slots_for_date_range
+        from datetime import timedelta
+
+        # Генерация слотов на 90 дней для всех юристов
+        try:
+            start_date = datetime.utcnow().date()
+            end_date = start_date + timedelta(days=90)
+
+            lawyers = User.query.filter_by(status='Lawyer').all()
+            for lawyer in lawyers:
+                generate_time_slots_for_date_range(lawyer, start_date, end_date)
+
+            print(f"✅ SUCCESSFULLY GENERATED TIME SLOTS FOR {len(lawyers)} LAWYERS.")
+
+        except Exception as e:
+            print(f"❌ ERROR DURING SLOT GENERATION: {e}")
+            db.session.rollback()
+
         print(f"✅ SUCCESSFULLY ADDED {len(reviews_to_add)} REVIEWS.")
 
     except Exception as e:
