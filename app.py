@@ -2,7 +2,6 @@ from flask import Flask, redirect, render_template, request, session, url_for, f
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
-from werkzeug.utils import secure_filename
 from config import app, db
 from models import User, Consultation
 from sqlalchemy import select
@@ -197,7 +196,7 @@ def login():
 
         if user.status == 'Admin':
             return redirect(url_for('admin_panel'))
-        return redirect(f"/user/dashboard/{user.id}")
+        return redirect(url_for('user_dashboard', user_id=user.id))
 
     else:
         print("FAIL: Invalid credentials (user not found or password mismatch).")
@@ -260,7 +259,7 @@ def sign_up():
 
         flash("Registration successful and logged in!", 'success')
 
-        return redirect(f"/user/dashboard/{new_user.id}")
+        return redirect(url_for('user_dashboard', user_id=session['user_id']))
 
 
 @app.route('/admin')
@@ -318,7 +317,6 @@ def lawyer_page(lawyer_id):
             'lawyer_profile.html',
             lawyer=lawyer_data,
             reviews=reviews_list,
-            booking_endpoint=url_for('book_consultation', lawyer_id=lawyer_data['id']),
             today_date=today_date_str
         )
 
@@ -327,15 +325,7 @@ def lawyer_page(lawyer_id):
         return "Internal Server Error", 500
 
 
-@app.route('/book-consultation/<int:lawyer_id>')
-@login_required
-def book_consultation(lawyer_id):
-
-
-    return redirect('/')
-
-
-@app.route('/dashboard/<int:user_id>')  # Или user_dashboard
+@app.route('/dashboard/<int:user_id>')
 @login_required
 def user_dashboard(user_id):
     # Проверка, что пользователь просматривает свой дашборд
@@ -343,18 +333,8 @@ def user_dashboard(user_id):
         flash('You are not authorized to view this dashboard.', 'danger')
         return redirect(url_for('index'))
 
-    # Загружаем консультации, где пользователь является клиентом
     client_consultations = Consultation.query.filter_by(client_id=user_id).all()
 
-    # Загружаем консультации, где пользователь является юристом (если нужно)
-    lawyer_consultations = Consultation.query.filter_by(lawyer_user_id=user_id).all()
-
-    # Объединяем списки и удаляем дубликаты, если пользователь - юрист
-    # ... (логика объединения) ...
-
-    # Пока сосредоточимся на клиентских консультациях:
-
-    # 1. Активные (scheduled, pending, started) - exclude cancelled and completed
     upcoming_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status not in ['completed', 'cancelled']
@@ -366,17 +346,14 @@ def user_dashboard(user_id):
         if c.status == 'completed'
     ]
 
-    # 3. НОВЫЙ СПИСОК: Отмененные
     cancelled_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status == 'cancelled'
     ]
 
-    # ... (другая логика) ...
 
     return render_template(
         'user_dashboard.html',
-        # ... (другие переменные)
         upcoming_meetings=upcoming_meetings,
         completed_meetings=completed_meetings,
         cancelled_meetings=cancelled_meetings,  # <--- ПЕРЕДАЕМ НОВЫЙ СПИСОК
@@ -433,7 +410,6 @@ def edit_profile(user_id):
 
 # STRIPE PAYMENTS LOGIC
 
-# app.py
 
 @app.route('/consultation/<int:lawyer_id>/checkout', methods=['POST', 'GET'])
 @login_required
