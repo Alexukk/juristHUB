@@ -16,6 +16,7 @@ from decimal import Decimal
 from telebot import TeleBot
 
 load_dotenv()
+
 PLATFORM_COMMISSION_RATE = Decimal('0.10')
 bot = TeleBot(os.getenv('TELEGRAM_API_KEY'))
 chat_id = os.getenv('CHAT_ID')
@@ -197,11 +198,11 @@ def support():
             )
 
             bot.send_message(chat_id, message)
-            flash('Request sent, we will answer as soon as possible!')
+            flash('Request sent, we will answer as soon as possible!', 'success')
             return render_template('support_page.html')
         except Exception as e:
             print(e)
-            flash("We have troubles sending your data try again later.")
+            flash("We have troubles sending your data try again later.", 'error')
             return redirect(url_for('support'))
 
     return render_template('support_page.html')
