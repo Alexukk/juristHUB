@@ -13,9 +13,12 @@ from sqlalchemy import func, case, text
 import stripe
 from datetime import date
 from decimal import Decimal
+from telebot import TeleBot
 
 load_dotenv()
 PLATFORM_COMMISSION_RATE = Decimal('0.10')
+bot = TeleBot(os.getenv('TELEGRAM_API_KEY'))
+chat_id = os.getenv('CHAT_ID')
 
 stripe.api_key = os.getenv("STRIPE_TEST_PRIVATE")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -162,6 +165,46 @@ def reviews():
         print(f"❌ ERROR loading reviews from DB: {e}")
         return render_template('reviews.html', reviews=[])
 
+
+@app.route('/support', methods=['POST', 'GET'])
+def support():
+    if request.method == 'POST':
+        if not session['email']:
+            flash('You must be logged in to contact support')
+            return redirect(url_for('login'))
+
+        user_email = request.form.get('user_email')
+        problem_type = request.form.get('problem_type')
+        problem_description = request.form.get('problem_description')
+        contact_phone = ''
+        if request.form.get('contact_phone'):
+            contact_phone = request.form.get('contact_phone')
+        try:
+            message = (
+                f"🚨 NEW SUPPORT REQUEST\n"
+                f"----------------------------------------\n"
+                f"👤 User Details:\n"
+                f"  ID: {session.get('user_id', 'N/A')}\n"
+                f"  Name: {session.get('username', 'N/A')}\n"
+                f"  Email (from form): {user_email}\n"
+                f"----------------------------------------\n"
+                f"❓ Request Details:\n"
+                f"  Type: {problem_type.upper()}\n"
+                f"  Phone: {contact_phone if contact_phone else 'Not provided'}\n"
+                f"----------------------------------------\n"
+                f"📝 Description:\n"
+                f"{problem_description}"
+            )
+
+            bot.send_message(chat_id, message)
+            flash('Request sent, we will answer as soon as possible!')
+            return render_template('support_page.html')
+        except Exception as e:
+            print(e)
+            flash("We have troubles sending your data try again later.")
+            return redirect(url_for('support'))
+
+    return render_template('support_page.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
