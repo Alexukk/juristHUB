@@ -12,12 +12,12 @@ from models import User, Review, Consultation
 from sqlalchemy import func, case, text
 import stripe
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, getcontext
 from telebot import TeleBot
 from datetime import datetime, time
 
 load_dotenv()
-
+getcontext().prec = 10
 PLATFORM_COMMISSION_RATE = Decimal('0.10')
 bot = TeleBot(os.getenv('TELEGRAM_API_KEY'))
 chat_id = os.getenv('CHAT_ID')
@@ -687,81 +687,121 @@ def payment_canceled():
 @app.route('/consultation/<int:consultation_id>', methods=['GET', 'POST'])
 @login_required
 def consultation_details(consultation_id):
+    # 1. Извлечение ID и статуса из сессии (Устраняет ошибку NameError: current_user)
+    current_user_id = session.get('user_id')
+    current_user_status = session.get('status', 'User')
+
+    if not current_user_id:
+        return redirect(url_for('login_route'))  # Предполагаемый маршрут входа
+
+    # 2. Получение консультации
     consultation = db.session.get(Consultation, consultation_id)
-
-    if request.method == 'POST':
-        action = request.form.get('action')
-
-        if action == 'cancel':
-
-            if consultation.payment_status == 'paid':
-
-                # 1. Возврат средств клиенту
-                client = db.session.get(User, consultation.client_id)
-                refund_amount = Decimal(str(consultation.price))
-
-                if client:
-                    client.balance += refund_amount
-
-                    if session.get('user_id') == client.id:
-                        session['balance'] = float(client.balance)
-
-                    flash(f'Consultation cancelled. ${refund_amount:.2f} refunded to your balance.', 'success')
-                    consultation.payment_status = 'refunded'
-                else:
-                    consultation.payment_status = 'refund_pending_manual'
-                    flash(
-                        f'Consultation cancelled, but user (ID: {consultation.client_id}) record is missing. Refund required manual check.',
-                        'danger')
-
-                # 2. Снятие комиссии с баланса юриста
-                lawyer = db.session.get(User, consultation.lawyer_user_id)
-
-                if lawyer:
-                    full_price = Decimal(str(consultation.price))
-                    # Расчет суммы, которую нужно снять (заработок юриста)
-                    earnings_to_reverse = full_price * (Decimal('1.00') - PLATFORM_COMMISSION_RATE)
-
-                    lawyer.balance -= earnings_to_reverse
-
-                    # Логика для предотвращения отрицательного баланса
-                    if lawyer.balance < 0:
-                        lawyer.balance = Decimal('0.00')
-                        flash(f'Warning: Lawyer {lawyer.fullname} had insufficient balance to cover the refund.',
-                              'warning')
-
-            elif consultation.payment_status == 'unpaid':
-                flash('Consultation cancelled successfully. No refund necessary as payment was pending.', 'success')
-                # Здесь не нужно трогать баланс юриста или клиента
-
-            # 3. Обновление статуса консультации и сохранение
-            consultation.status = 'cancelled'
-            db.session.commit()
-
-            return redirect(url_for('user_dashboard', user_id=session['user_id']))
 
     if not consultation:
         flash('Consultation not found.', 'danger')
-        return redirect(url_for('user_dashboard', user_id=session['user_id']))
+        # Устраняет ошибку BuildError: url_for('user_dashboard') требует user_id
+        return redirect(url_for('user_dashboard', user_id=current_user_id))
 
-    is_client = consultation.client_id == session['user_id']
-    is_lawyer = consultation.lawyer_user_id == session['user_id']
+        # 3. Проверка прав доступа
+    is_client = consultation.client_id == current_user_id
+    is_lawyer = consultation.lawyer_user_id == current_user_id
+    is_admin = current_user_status == 'Admin'
 
-    if not (is_client or is_lawyer or session['status'] == 'Admin'):
+    if not (is_client or is_lawyer or is_admin):
         flash('You do not have access to this consultation.', 'danger')
-        return redirect(url_for('my_consultations'))
+        return redirect(url_for('user_dashboard', user_id=current_user_id))
+
+    # --- Обработка POST-запроса (Отмена) ---
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'cancel' and (is_client or is_admin):
+
+            # Дополнительная проверка: нельзя отменить уже завершенную или отмененную
+            if consultation.status in ['cancelled', 'completed']:
+                flash(f'Cannot cancel consultation. Status is already "{consultation.status}".', 'warning')
+                return redirect(url_for('consultation_details', consultation_id=consultation_id))
+
+            try:
+                # --- ЛОГИКА ТРАНЗАКЦИЙ ---
+
+                consultation_price = Decimal(str(consultation.price))
+
+                # 1. ОБНОВЛЕНИЕ СТАТУСА СЛОТА (КРИТИЧЕСКИЙ БЛОК ДЛЯ ОСВОБОЖДЕНИЯ)
+                if consultation.time_slot_id:
+                    timeslot = db.session.get(TimeSlot, consultation.time_slot_id)
+
+                    if timeslot:
+                        # 1.1. ОСВОБОЖДАЕМ СТАТУС ЯЧЕЙКИ
+                        timeslot.status = 'available'
+
+                        # 1.2. ОЧИЩАЕМ ОБРАТНУЮ СВЯЗЬ
+                        timeslot.consultation_id = None
+
+                        db.session.add(timeslot)
+
+                # 2. ФИНАНСОВЫЕ ОПЕРАЦИИ
+                if consultation.payment_status == 'paid':
+
+                    # 2.1. Возврат средств клиенту
+                    client = db.session.get(User, consultation.client_id)
+                    if client:
+                        client.balance += consultation_price
+                        if current_user_id == client.id:
+                            session['balance'] = float(client.balance)
+                        flash(f'Consultation cancelled. ${consultation_price:.2f} refunded to your balance.', 'success')
+                        consultation.payment_status = 'refunded'
+                    else:
+                        consultation.payment_status = 'refund_pending_manual'
+                        flash('Consultation cancelled, but client record missing. Manual refund needed.', 'danger')
+
+                    # 2.2. Снятие комиссии с баланса юриста
+                    lawyer = db.session.get(User, consultation.lawyer_user_id)
+                    if lawyer:
+                        earnings_to_reverse = consultation_price * (Decimal('1.00') - PLATFORM_COMMISSION_RATE)
+                        lawyer.balance -= earnings_to_reverse
+                        if lawyer.balance < 0:
+                            lawyer.balance = Decimal('0.00')
+                            flash(f'Warning: Lawyer {lawyer.fullname} balance adjusted due to refund reversal.',
+                                  'warning')
+
+                elif consultation.payment_status == 'unpaid':
+                    flash('Consultation cancelled successfully. No refund necessary as payment was pending.', 'success')
+
+                # 3. Фиксация статуса консультации и очистка прямой связи
+                consultation.status = 'cancelled'
+                consultation.time_slot_id = None
+                db.session.add(consultation)
+
+                # 4. ФИНАЛЬНЫЙ КОММИТ
+                db.session.commit()
+
+            except Exception:
+                db.session.rollback()
+                flash('Database error during cancellation commit. Transaction rolled back.', 'danger')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'An unexpected error occurred: {e}', 'danger')
+
+            # Успешный редирект (Устраняет ошибку BuildError)
+            return redirect(url_for('user_dashboard', user_id=current_user_id))
+
+    # --- Обработка GET-запроса (Отображение деталей) ---
 
     consultation_data = consultation.to_dict()
-    consultation_data['js_date_iso'] = consultation.date.isoformat()
-    lawyer_name = db.session.get(User, consultation.lawyer_user_id).fullname
+    # Убедитесь, что 'consultation.date' — это объект, который можно преобразовать в isoformat
+    consultation_data['js_date_iso'] = consultation.date.isoformat() if hasattr(consultation, 'date') else None
+
+    lawyer = db.session.get(User, consultation.lawyer_user_id)
+    lawyer_name = lawyer.fullname if lawyer else "Unknown Lawyer"
 
     return render_template(
         'consultation_details.html',
         consultation=consultation_data,
         lawyer_name=lawyer_name,
         is_client=is_client,
+        is_lawyer=is_lawyer
     )
-
 
 with app.app_context():
     db.create_all()
