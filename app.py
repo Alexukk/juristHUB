@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 from datetime import datetime, timezone
 from config import app, db
-from models import User, Consultation
+from models import User, Consultation, TimeSlot
 from sqlalchemy import select
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -14,6 +14,7 @@ import stripe
 from datetime import date
 from decimal import Decimal
 from telebot import TeleBot
+from datetime import datetime, time
 
 load_dotenv()
 
@@ -368,6 +369,34 @@ def lawyer_page(lawyer_id):
         print(f"❌ CRITICAL ERROR accessing lawyer profile: {e}")
         return "Internal Server Error", 500
 
+@app.route('/lawyer/<int:lawyer_id>/availability')
+def get_availability(lawyer_id):
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify([])
+
+    try:
+        selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+
+    start_dt = datetime.combine(selected_date, time.min)
+    end_dt = datetime.combine(selected_date, time.max)
+
+    slots = TimeSlot.query.filter(
+        TimeSlot.lawyer_id == lawyer_id,
+        TimeSlot.slot_datetime >= start_dt,
+        TimeSlot.slot_datetime <= end_dt
+    ).order_by(TimeSlot.slot_datetime).all()
+
+    return jsonify([
+        {
+            'time': slot.slot_datetime.strftime('%H:%M'),
+            'status': slot.status
+        } for slot in slots
+    ])
+
+
 
 @app.route('/dashboard/<int:user_id>')
 @login_required
@@ -459,7 +488,6 @@ def edit_profile(user_id):
 @login_required
 def payment_provider(lawyer_id):
     if request.method == 'POST':
-
         client_id = session.get('user_id')
         if not client_id:
             return redirect(url_for('login_route'))
@@ -475,23 +503,25 @@ def payment_provider(lawyer_id):
         try:
             price_usd = float(lawyer.price)
             consultation_price_cents = int(price_usd * 100)
-
-            booking_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M').replace(
-                tzinfo=timezone.utc)
-
+            booking_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M').replace(tzinfo=timezone.utc)
         except (ValueError, TypeError) as e:
             return f"Invalid data (price or datetime): {e}", 500
 
-        # --- НОВАЯ ЛОГИКА КОПИРОВАНИЯ ССЫЛКИ/АДРЕСА ---
-        meeting_url = None
-        location_gmaps = None
+        # 🔍 Проверка слота
+        slot = TimeSlot.query.filter_by(
+            lawyer_id=lawyer_id,
+            slot_datetime=booking_datetime,
+            status='available'
+        ).first()
 
-        if consultation_type == 'Online':
-            meeting_url = lawyer.zoom_link  # Используем zoom_link, если это у вас есть
-        elif consultation_type == 'Offline':
-            location_gmaps = lawyer.office_address
-        # ---------------------------------------------------
+        if not slot:
+            return "Selected time slot is not available", 400
 
+        # 📍 Локация
+        meeting_url = lawyer.zoom_link if consultation_type == 'Online' else None
+        location_gmaps = lawyer.office_address if consultation_type == 'Offline' else None
+
+        # 📝 Создание консультации
         new_consultation = Consultation(
             client_id=client_id,
             lawyer_user_id=lawyer_id,
@@ -499,19 +529,21 @@ def payment_provider(lawyer_id):
             type=consultation_type,
             status='pending',
             payment_status='unpaid',
-
-            # --- ПЕРЕДАЕМ СКОПИРОВАННЫЕ ЗНАЧЕНИЯ ---
             meeting_url=meeting_url,
             location_gmaps=location_gmaps,
-            price=price_usd
-            # ----------------------------------------
+            price=price_usd,
+            time_slot_id=slot.id
         )
         db.session.add(new_consultation)
-        db.session.commit()
-        print(meeting_url)
-        print(location_gmaps)
+        db.session.flush()  # Получаем ID до коммита
 
-        # 4. Создание сессии Stripe Checkout
+        # 🔒 Блокировка слота
+        slot.status = 'booked'
+        slot.consultation_id = new_consultation.id
+        db.session.add(slot)
+        db.session.commit()
+
+        # 💳 Stripe Checkout
         stripe_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -527,7 +559,6 @@ def payment_provider(lawyer_id):
             }],
             mode='payment',
             metadata={'consultation_id': new_consultation.id},
-
             success_url=url_for('payment_success', _external=True) + '?consultation_id=' + str(new_consultation.id),
             cancel_url=url_for('payment_canceled', _external=True) + '?consultation_id=' + str(new_consultation.id),
         )
