@@ -4,66 +4,94 @@
 
 {% block content %}
 <div class="container py-5">
-    <div class="row mb-5 align-items-center bg-light p-4 rounded shadow-sm">
-        <div class="col-md-4 text-center mb-4 mb-md-0">
-            <img src="{{ url_for('static', filename='images/' + lawyer.photo_url) if lawyer.photo_url else 'https://via.placeholder.com/200' }}"
+
+    {# 1. БЛОК ГЛАВНОЙ ИНФОРМАЦИИ (ШАПКА ПРОФИЛЯ) #}
+    <div class="row mb-5 align-items-center p-4 border rounded-3 shadow-lg bg-white">
+
+        <div class="col-md-3 text-center mb-4 mb-md-0 border-end">
+            {# ФОТО (Исправленный путь: убран лишний /static/images/) #}
+            <img src="{{ url_for('static', filename=lawyer.photo_url) if lawyer.photo_url else 'https://via.placeholder.com/200/404040/ffffff?text=Jurist' }}"
                  alt="{{ lawyer.fullname }} photo"
-                 class="img-fluid rounded-circle mb-3 border border-warning border-3"
-                 style="width: 200px; height: 200px; object-fit: cover;">
-            <h2 class="fw-bold text-primary">{{ lawyer.fullname }}</h2>
-            <h4 class="text-secondary">{{ lawyer.specialization }}</h4>
-            <button type="button" class="btn btn-warning btn-lg fw-bold mt-3" data-bs-toggle="modal" data-bs-target="#bookingModal">
+                 class="img-fluid rounded-circle mb-3 border border-primary border-4"
+                 style="width: 180px; height: 180px; object-fit: cover;">
+
+            {# КНОПКА #}
+            <button type="button" class="btn btn-warning btn-lg fw-bold mt-3 w-100" data-bs-toggle="modal" data-bs-target="#bookingModal">
                 <i class="fas fa-calendar-check me-2"></i> Book Consultation
             </button>
         </div>
 
-        <div class="col-md-8">
-            <h3 class="mb-4">Professional Details</h3>
-            <p class="lead">{{ lawyer.description }}</p>
+        <div class="col-md-9 ps-md-5">
+            <h1 class="fw-bolder text-primary mb-1">{{ lawyer.fullname }}</h1>
+            <h3 class="text-secondary mb-3">{{ lawyer.specialization }}</h3>
 
-            <div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
-                <div class="col">
-                    <div class="p-3 border rounded text-center h-100 bg-white">
-                        <i class="fas fa-star fa-2x text-warning mb-2"></i>
-                        <p class="mb-0 fw-bold">Rating</p>
-                        <h5 class="text-dark">{{ lawyer.rating | default(0) | float | round(1) }} / 5.0</h5>
-                        <small class="text-muted">({{ lawyer.reviews_count | default(0) }} Reviews)</small>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="p-3 border rounded text-center h-100 bg-white">
-                        <i class="fas fa-briefcase fa-2x text-info mb-2"></i>
-                        <p class="mb-0 fw-bold">Experience</p>
-                        <h5 class="text-dark">{{ lawyer.experience or 'N/A' }}</h5>
-                    </div>
-                </div>
-                <div class="col">
-                    <div class="p-3 border rounded text-center h-100 bg-white">
-                        <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
-                        <p class="mb-0 fw-bold">Price</p>
-                        <h5 class="text-dark">${{ lawyer.price or 'N/A' }} / Hr</h5>
-                    </div>
-                </div>
+            {# КРАТКИЙ РЕЙТИНГ #}
+            <div class="d-flex align-items-center mb-4">
+                <i class="fas fa-star fa-2x text-warning me-2"></i>
+                <span class="fs-4 me-2">{{ lawyer.rating | default(0) | float | round(1) }} / 5.0</span>
+                <span class="text-muted">({{ lawyer.reviews_count | default(0) }} Reviews)</span>
             </div>
 
-            <p class="text-muted small">*All prices are subject to change. Please confirm during booking.</p>
+            {# ОПИСАНИЕ #}
+            <p class="lead text-muted">{{ lawyer.description }}</p>
+
+            <p class="text-muted small mt-4">*All prices are subject to change. Please confirm during booking.</p>
         </div>
     </div>
 
+    <hr class="my-5">
+
+    {# 2. СЕКЦИЯ КЛЮЧЕВЫХ МЕТРИК (ОПЫТ, ЦЕНА) #}
+    <h3 class="mb-4 text-center text-primary">Key Statistics</h3>
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-5 text-center">
+        <div class="col">
+            <div class="card h-100 border-info shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-briefcase fa-3x text-info mb-3"></i>
+                    <p class="mb-0 fw-bold text-muted">Experience</p>
+                    <h4 class="text-dark">{{ lawyer.experience or 'N/A' }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-success shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-dollar-sign fa-3x text-success mb-3"></i>
+                    <p class="mb-0 fw-bold text-muted">Price</p>
+                    <h4 class="text-dark">${{ lawyer.price or 'N/A' }} / Hr</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card h-100 border-secondary shadow-sm">
+                <div class="card-body">
+                    <i class="fas fa-globe fa-3x text-secondary mb-3"></i>
+                    <p class="mb-0 fw-bold text-muted">Consultation Type</p>
+                    <h4 class="text-dark">Online & Offline</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-5">
+
+    {# 3. СЕКЦИЯ ОТЗЫВОВ #}
     <h3 class="mt-5 mb-4 border-bottom pb-2">Client Reviews ({{ reviews|length }})</h3>
 
     {% if reviews %}
         {% for review in reviews %}
-            <div class="card mb-3 shadow-sm">
+            <div class="card mb-3 shadow-sm border-light">
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
-                            <h6 class="fw-bold mb-0">
+                            <h6 class="fw-bold mb-0 text-dark">
                                 <i class="fas fa-user-tag me-2 text-secondary"></i>{{ review.user_name }}
                             </h6>
-                            <small class="text-muted"><i class="fa-solid fa-calendar"></i>&nbsp;  {{ review.date }}</small>
+                            {# ИСПОЛЬЗУЕМ КОРРЕКТНУЮ ИКОНКУ FA #}
+                            <small class="text-muted"><i class="far fa-calendar-alt"></i>&nbsp;  {{ review.date }}</small>
                         </div>
                         <div>
+                            {# РЕЙТИНГ ЗВЕЗДАМИ #}
                             {% set safe_rating = review.rating | default(0) | int %}
                             {% for i in range(5) %}
                                 {% if i < safe_rating %}
@@ -74,7 +102,7 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <p class="card-text mt-3 border-start border-3 ps-3">{{ review.text }}</p>
+                    <p class="card-text mt-3 border-start border-3 border-secondary ps-3 fst-italic">{{ review.text }}</p>
                 </div>
             </div>
         {% endfor %}
@@ -85,6 +113,7 @@
     {% endif %}
 </div>
 
+{# 4. МОДАЛЬНОЕ ОКНО БРОНИРОВАНИЯ #}
 <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -191,6 +220,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     function fetchAvailability(selectedDate) {
+        // Убедимся, что timeSelect существует, прежде чем менять его содержимое
+        if (!timeSelect) return;
+
         timeSelect.innerHTML = '<option disabled selected>Loading slots...</option>';
 
         if (!lawyerId) {
@@ -202,13 +234,12 @@ document.addEventListener('DOMContentLoaded', function () {
         fetch(`/lawyer/${lawyerId}/availability?date=${selectedDate}`)
             .then(response => {
                 if (!response.ok) {
-                    // Выброс ошибки для перехвата в блоке .catch
                     throw new Error(`HTTP error! Status: ${response.status}. Could not fetch availability.`);
                 }
                 return response.json();
             })
             .then(data => {
-                timeSelect.innerHTML = '<option value="" disabled selected>Select a time</option>'; // Сброс и placeholder
+                timeSelect.innerHTML = '<option value="" disabled selected>Select a time</option>';
 
                 if (!data || data.length === 0) {
                     const option = document.createElement('option');
@@ -222,26 +253,36 @@ document.addEventListener('DOMContentLoaded', function () {
                     const option = document.createElement('option');
                     option.value = slot.time;
 
+                    let statusText;
+                    let statusClass;
+                    let icon;
+
+                    // --- ЛОГИКА ДИЗАЙНА СЛОТОВ И СТАТУСОВ ---
                     if (slot.status === 'available') {
-                        option.textContent = `${slot.time} (Available)`;
-                        option.classList.add('text-primary');
-                    } else if (slot.status === 'booked') {
-                        option.textContent = `${slot.time} (Booked)`;
-                        option.classList.add('text-danger');
-                        option.disabled = true;
-                    } else {
-                        // Для 'pending' или других статусов
-                        option.textContent = `${slot.time} (${slot.status})`;
-                        option.classList.add('text-muted');
+                        statusText = 'Available';
+                        statusClass = 'text-success';
+                        icon = '✅';
+                    } else { // 'booked', 'unavailable', 'pending'
+                        // ЗАМЕНА 'Booked' на 'Unavailable'
+                        statusText = 'Unavailable';
+                        statusClass = 'text-danger';
+                        icon = '🚫';
                         option.disabled = true;
                     }
+
+                    // Форматирование опции для красивого отображения времени и статуса (может быть проигнорировано браузером)
+                    option.innerHTML = `
+                        <span class="fw-bold me-2 ${statusClass}">${slot.time}</span>
+                        <span class="badge bg-secondary-subtle ${statusClass} rounded-pill">${icon} ${statusText}</span>
+                    `;
+                    option.style.padding = '8px 15px';
+                    // ------------------------------------------
 
                     timeSelect.appendChild(option);
                 });
             })
             .catch(error => {
                 console.error('Error fetching slots:', error);
-                // Более дружелюбное сообщение об ошибке для пользователя
                 timeSelect.innerHTML = '<option disabled selected>Error loading slots. Please try again.</option>';
             });
     }
