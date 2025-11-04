@@ -2,7 +2,7 @@
 
 {% block title %}Reviews Overview - JuristHUB{% endblock %}
 
-{# Макрос для рендеринга звезд остается прежним #}
+{# Macro for rendering stars remains the same #}
 {% macro render_stars(rating) %}
     {% for i in range(5) %}
         {% if i < rating %}
@@ -18,8 +18,8 @@
 
     <header class="py-5 bg-primary text-white">
         <div class="container text-center">
-            <h1 class="fw-bold display-4">🌟 Клиентские Отзывы JuristHUB</h1>
-            <p class="lead mt-3">Что наши клиенты говорят о юридических экспертах платформы.</p>
+            <h1 class="fw-bold display-4">🌟 JuristHUB Client Reviews</h1>
+            <p class="lead mt-3">What our clients say about the legal experts on our platform.</p>
         </div>
     </header>
 
@@ -27,33 +27,33 @@
         <div class="row g-4">
 
             {# ========================================================= #}
-            {# СЕКЦИЯ 1: ФИЛЬТРЫ И СТАТИСТИКА #}
+            {# SECTION 1: FILTERS AND STATISTICS #}
             {# ========================================================= #}
             <div class="col-lg-4">
                 <div class="card shadow-sm mb-4 sticky-top border-0" style="top: 20px;">
                     <div class="card-body">
-                        <h4 class="card-title fw-bold text-primary mb-4">Обзор Рейтинга</h4>
+                        <h4 class="card-title fw-bold text-primary mb-4">Rating Summary</h4>
 
-                        {# БЛОК СРЕДНЕГО РЕЙТИНГА #}
+                        {# AVERAGE RATING BLOCK #}
                         <div class="text-center mb-4 p-3 border rounded bg-light">
                             <h1 class="display-3 fw-bolder text-warning">
-                                {# Форматирование среднего рейтинга до 1 знака после запятой #}
+                                {# Formatting average rating to 1 decimal place #}
                                 {{ "%.1f" | format(average_rating) | default('0.0') }}
                             </h1>
                             <div class="fs-4 mb-2">
-                                {# Округляем для отображения заполненных звезд #}
+                                {# Rounds for display of filled stars #}
                                 {{ render_stars(average_rating | round | int) }}
                             </div>
-                            <p class="text-muted mb-0">{{ total_reviews }} Общий Рейтинг</p>
+                            <p class="text-muted mb-0">{{ total_reviews }} Total Ratings</p>
                         </div>
 
                         <hr>
 
-                        <h5 class="fw-bold mt-4 mb-3">Распределение по Звездам</h5>
+                        <h5 class="fw-bold mt-4 mb-3">Star Distribution</h5>
 
-                        {# БЛОК РАСПРЕДЕЛЕНИЯ #}
+                        {# DISTRIBUTION BLOCK #}
                         {% for star in range(5, 0, -1) %}
-                            {# Получаем количество и процент. total_reviews | default(1) используется для предотвращения деления на ноль #}
+                            {# Get count and percentage. Defaulting total_reviews to 1 prevents division by zero #}
                             {% set count = rating_distribution[star] | default(0) %}
                             {% set percentage = (count / (total_reviews | default(1)) * 100) | round | int %}
                             <div class="d-flex align-items-center mb-2">
@@ -70,29 +70,29 @@
 
                         <hr>
 
-                        {# ФОРМА СОРТИРОВКИ/ФИЛЬТРАЦИИ #}
-                        <h5 class="fw-bold mt-4 mb-3">Фильтр и Сортировка</h5>
-                        {# Отправляем форму на тот же эндпоинт #}
+                        {# SORTING / FILTERING FORM #}
+                        <h5 class="fw-bold mt-4 mb-3">Filter & Sort</h5>
+                        {# Submits form to the same endpoint #}
                         <form method="GET" action="{{ url_for('reviews') }}" class="mb-3">
                             <div class="mb-3">
-                                <label for="sort_by" class="form-label small fw-bold">Сортировать по:</label>
+                                <label for="sort_by" class="form-label small fw-bold">Sort By:</label>
                                 <select name="sort_by" id="sort_by" class="form-select form-select-sm">
-                                    <option value="newest" {% if request.args.get('sort_by') == 'newest' %}selected{% endif %}>Дате (Сначала новые)</option>
-                                    <option value="highest" {% if request.args.get('sort_by') == 'highest' %}selected{% endif %}>Рейтингу (Сначала 5★)</option>
-                                    <option value="lowest" {% if request.args.get('sort_by') == 'lowest' %}selected{% endif %}>Рейтингу (Сначала 1★)</option>
+                                    <option value="newest" {% if request.args.get('sort_by') == 'newest' %}selected{% endif %}>Date (Newest First)</option>
+                                    <option value="highest" {% if request.args.get('sort_by') == 'highest' %}selected{% endif %}>Rating (Highest First)</option>
+                                    <option value="lowest" {% if request.args.get('sort_by') == 'lowest' %}selected{% endif %}>Rating (Lowest First)</option>
                                 </select>
                             </div>
 
                             <div class="mb-3">
-                                <label for="min_rating" class="form-label small fw-bold">Мин. рейтинг:</label>
+                                <label for="min_rating" class="form-label small fw-bold">Min. Rating:</label>
                                 <select name="min_rating" id="min_rating" class="form-select form-select-sm">
-                                    <option value="0" {% if request.args.get('min_rating')|int == 0 %}selected{% endif %}>Все звезды</option>
-                                    <option value="4" {% if request.args.get('min_rating')|int == 4 %}selected{% endif %}>4 звезды и выше</option>
-                                    <option value="5" {% if request.args.get('min_rating')|int == 5 %}selected{% endif %}>Только 5 звезд</option>
+                                    <option value="0" {% if request.args.get('min_rating')|int == 0 %}selected{% endif %}>All Stars</option>
+                                    <option value="4" {% if request.args.get('min_rating')|int == 4 %}selected{% endif %}>4 Stars & Up</option>
+                                    <option value="5" {% if request.args.get('min_rating')|int == 5 %}selected{% endif %}>5 Stars Only</option>
                                 </select>
                             </div>
 
-                            <button type="submit" class="btn btn-primary w-100 shadow">Применить Фильтры</button>
+                            <button type="submit" class="btn btn-primary w-100 shadow">Apply Filters</button>
                         </form>
 
                     </div>
@@ -100,11 +100,11 @@
             </div>
 
             {# ========================================================= #}
-            {# СЕКЦИЯ 2: ЛЕНТА ОТЗЫВОВ #}
+            {# SECTION 2: REVIEWS FEED #}
             {# ========================================================= #}
             <div class="col-lg-8">
                 <h3 class="mb-4 fw-bold text-dark">
-                    Отзывы ({{ reviews | length }})
+                    Reviews ({{ reviews | length }})
                     {% if request.args.get('min_rating')|int > 0 %}
                         <span class="badge bg-warning text-dark align-middle ms-2">{{ request.args.get('min_rating') }}★+</span>
                     {% endif %}
@@ -134,7 +134,7 @@
                             </p>
 
                             <p class="small mb-0 text-secondary">
-                                <i class="fas fa-gavel me-1"></i> Оставлен для:
+                                <i class="fas fa-gavel me-1"></i> Reviewed for:
 
                                 <a href="{{ url_for('lawyer_page', lawyer_id=review.lawyer_user_id) }}" class="text-primary fw-bold">
                                     <i class="fa-solid fa-user-tie"></i> {{ review.lawyer_name }}
@@ -144,12 +144,12 @@
                         </div>
                     </div>
                 {% else %}
-                     <div class="alert alert-info">Нет отзывов, соответствующих текущим фильтрам.</div>
+                     <div class="alert alert-info">No reviews match the current filters.</div>
                 {% endfor %}
 
-                {# Секция для пагинации #}
+                {# Pagination Section #}
                 <div class="mt-4 text-center">
-                    {# Если вы используете Flask-SQLAlchemy-Pagination, вставьте сюда логику пагинации #}
+                    {# If you are using Flask-SQLAlchemy-Pagination, insert your pagination logic here #}
                 </div>
 
             </div>
