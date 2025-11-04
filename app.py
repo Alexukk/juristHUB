@@ -15,6 +15,7 @@ from datetime import date
 from decimal import Decimal, getcontext
 from telebot import TeleBot
 from datetime import datetime, time
+from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
 getcontext().prec = 10
@@ -432,6 +433,10 @@ def user_dashboard(user_id):
         cancelled_meetings=cancelled_meetings,  # <--- ПЕРЕДАЕМ НОВЫЙ СПИСОК
     )
 
+@app.route("/add-review/<int:consultation_id>")
+@login_required
+def add_review(consultation_id):
+    pass
 
 
 @app.route('/logout', methods=['POST', 'GET'])

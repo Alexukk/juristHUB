@@ -95,11 +95,11 @@
     <style>
         /* Дополнительный CSS для контраста активной вкладки */
         #consultationTabs .nav-link:not(.active) {
-            color: #495057 !important; /* Серый цвет для неактивных, если стили Bootstrap не работают */
+            color: #495057 !important;
         }
         #consultationTabs .nav-link.active {
-            background-color: #004c99 !important; /* Синий фон для активной вкладки */
-            color: white !important; /* Белый текст для активной вкладки */
+            background-color: #004c99 !important;
+            color: white !important;
         }
     </style>
     <div class="tab-content" id="consultationTabsContent">
@@ -144,14 +144,28 @@
             {% for meeting in completed_meetings %}
                 <div class="card shadow-sm mb-3 border-secondary">
                     <div class="card-body row align-items-center">
-                        <div class="col-md-7">
+                        <div class="col-md-6">
                             <h5 class="card-title fw-bold text-secondary">{{ meeting.lawyer_name }}</h5>
                             <p class="card-text mb-0">
                                 <i class="fas fa-calendar-check me-2"></i> Date: {{ meeting.date }} at {{ meeting.time }}
                             </p>
                         </div>
-                        <div class="col-md-5 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
+                        <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex justify-content-end align-items-center">
 
+                            {% if meeting.has_review %}
+                                <button class="btn btn-success btn-sm shadow me-3 disabled" disabled>
+                                    <i class="fas fa-check-circle me-1"></i> Reviewed
+                                </button>
+                            {% else %}
+                                <button type="button"
+                                        class="btn btn-warning btn-sm shadow me-3"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#reviewModal"
+                                        data-consultation-id="{{ meeting.id }}"
+                                        data-lawyer-name="{{ meeting.lawyer_name }}">
+                                    <i class="fas fa-star me-1"></i> Leave Review
+                                </button>
+                            {% endif %}
                             <span class="badge bg-dark me-3 p-2"><i class="fas fa-clock"></i> Completed</span>
 
                             <a href="{{ url_for('consultation_details', consultation_id=meeting.id) }}" class="btn btn-sm btn-info text-white shadow-sm">
@@ -164,7 +178,6 @@
                 <div class="alert alert-warning">You have no completed consultations yet.</div>
             {% endfor %}
         </div>
-
         <div class="tab-pane fade" id="cancelled" role="tabpanel" aria-labelledby="cancelled-tab">
             {% for meeting in cancelled_meetings %}
                 <div class="card shadow-sm mb-3 border-danger">
@@ -203,4 +216,97 @@
     </div>
 </div>
 
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="reviewModalLabel"><i class="fas fa-star me-2"></i> Leave Review for <span id="lawyerNamePlaceholder" class="fw-bold"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form id="reviewForm" method="POST">
+                <div class="modal-body">
+                    <p class="text-muted small">Your feedback helps improve the platform.</p>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Rating (1-5 stars)</label>
+                        <div id="starRating" class="d-flex fs-4 text-warning">
+                            <i class="far fa-star me-1" data-rating="1"></i>
+                            <i class="far fa-star me-1" data-rating="2"></i>
+                            <i class="far fa-star me-1" data-rating="3"></i>
+                            <i class="far fa-star me-1" data-rating="4"></i>
+                            <i class="far fa-star me-1" data-rating="5"></i>
+                            <input type="hidden" name="rating" id="ratingInput" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reviewText" class="form-label fw-bold">Review Text (Optional)</label>
+                        <textarea class="form-control" id="reviewText" name="text" rows="3" maxlength="500" placeholder="Share your experience..."></textarea>
+                    </div>
+
+                    <input type="hidden" name="consultation_id" id="consultationIdInput">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-warning fw-bold">Submit Review</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const reviewModal = document.getElementById('reviewModal');
+        const starRating = document.getElementById('starRating');
+        const ratingInput = document.getElementById('ratingInput');
+        const reviewForm = document.getElementById('reviewForm');
+
+        // 1. Динамическая установка ID консультации и имени юриста
+        reviewModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const consultationId = button.getAttribute('data-consultation-id');
+            const lawyerName = button.getAttribute('data-lawyer-name');
+
+            // Устанавливаем action формы
+            // Здесь мы используем прямое строковое замещение для формирования URL
+            const reviewUrl = "{{ url_for('add_review', consultation_id=0) }}".replace('/0', '/' + consultationId);
+
+            document.getElementById('consultationIdInput').value = consultationId;
+            document.getElementById('lawyerNamePlaceholder').textContent = lawyerName;
+            reviewForm.action = reviewUrl; // Устанавливаем action формы
+        });
+
+        // 2. Логика звездного рейтинга
+        starRating.addEventListener('click', function(e) {
+            const target = e.target.closest('i');
+            if (!target || !target.dataset.rating) return;
+
+            const rating = parseInt(target.dataset.rating);
+            ratingInput.value = rating;
+
+            // Обновляем внешний вид звезд
+            starRating.querySelectorAll('i').forEach(star => {
+                const starRatingValue = parseInt(star.dataset.rating);
+                if (starRatingValue <= rating) {
+                    star.classList.remove('far');
+                    star.classList.add('fas');
+                } else {
+                    star.classList.remove('fas');
+                    star.classList.add('far');
+                }
+            });
+        });
+
+        // 3. Сброс звезд и формы при закрытии
+        reviewModal.addEventListener('hide.bs.modal', function () {
+            ratingInput.value = '';
+            reviewForm.reset();
+            starRating.querySelectorAll('i').forEach(star => {
+                star.classList.remove('fas');
+                star.classList.add('far');
+            });
+        });
+    });
+</script>
 {% endblock %}
