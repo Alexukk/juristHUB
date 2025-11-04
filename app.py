@@ -16,6 +16,9 @@ from decimal import Decimal, getcontext
 from telebot import TeleBot
 from datetime import datetime, time
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func, desc, asc
+from collections import defaultdict
+from sqlalchemy.orm import joinedload
 
 load_dotenv()
 getcontext().prec = 10
@@ -38,6 +41,37 @@ def login_required(f):
 
     return decorated_function
 
+
+def process_consultation_data(consultation, user_model, current_time):
+    """Преобразует объект Consultation в словарь для шаблона и сортирует его."""
+
+    # 1. Получение имени юриста
+    lawyer = db.session.get(user_model, consultation.lawyer_user_id)
+    lawyer_name = lawyer.fullname if lawyer else "Unknown Lawyer"
+
+    # 2. Создание словаря с данными
+    meeting_data = {
+        'id': consultation.id,
+        'date': consultation.date.strftime('%Y-%m-%d') if consultation.date else 'N/A',
+        'time': consultation.time.strftime('%H:%M') if consultation.time else 'N/A',
+        'lawyer_name': lawyer_name,
+        'status': consultation.status,
+        'payment_status': consultation.payment_status,
+        'is_paid': consultation.payment_status == 'paid' or consultation.payment_status == 'refunded',
+
+        # КРИТИЧЕСКОЕ ПОЛЕ ДЛЯ КНОПКИ ОТЗЫВА
+        'has_review': consultation.review is not None
+    }
+
+    # 3. Логика сортировки
+    if consultation.status == 'cancelled':
+        return 'cancelled', meeting_data
+    elif consultation.status == 'completed':
+        return 'completed', meeting_data
+    elif consultation.date and consultation.date.replace(tzinfo=timezone.utc) > current_time:
+        return 'upcoming', meeting_data
+    else:
+        return 'completed', meeting_data
 
 
 @app.route('/')
@@ -143,30 +177,70 @@ def all_lawyers():
 def reviews():
     print("ROUTE: Accessing reviews page, loading from DB.")
 
+    # 1. Получение параметров сортировки и фильтрации из URL
+    # 'newest' по умолчанию
+    sort_by = request.args.get('sort_by', 'newest')
+    # '0' (все) по умолчанию
+    min_rating = int(request.args.get('min_rating', 0))
+
     try:
+        # --- БЛОК СТАТИСТИКИ (игнорирует фильтрацию) ---
+
+        # Общая статистика (средний рейтинг и распределение) - требуется для боковой панели
+        total_reviews = db.session.query(Review).count()
+        average_rating = db.session.query(func.avg(Review.rating)).scalar()
+
+        # Распределение звезд (например, [(5, 120), (4, 50), ...])
+        rating_counts = db.session.query(Review.rating, func.count(Review.rating)) \
+            .group_by(Review.rating).all()
+
+        # Преобразование в словарь для шаблона {5: 120, 4: 50, ...}
+        rating_distribution = defaultdict(int, dict(rating_counts))
+
+        # --- БЛОК ОСНОВНОГО ЗАПРОСА (с фильтрацией и сортировкой) ---
+
+        # 2. Формирование запроса с фильтрацией по минимальному рейтингу
         query = (
             db.select(Review)
+            .filter(Review.rating >= min_rating)
             .options(
-                db.joinedload(Review.client),
-                db.joinedload(Review.lawyer)
+                joinedload(Review.client),
+                joinedload(Review.lawyer)
             )
-            .order_by(Review.date.desc())
         )
 
+        # 3. Применение сортировки
+        if sort_by == 'newest':
+            query = query.order_by(desc(Review.date))
+        elif sort_by == 'highest':
+            query = query.order_by(desc(Review.rating), desc(Review.date))
+        elif sort_by == 'lowest':
+            query = query.order_by(asc(Review.rating), desc(Review.date))
 
         reviews_objects = db.session.execute(query).scalars().all()
 
+        # 4. Преобразование в словарь (должно быть определено в Review.to_dict())
         reviews_list = [
             review.to_dict() for review in reviews_objects
         ]
 
-        print(f"✅ Loaded {len(reviews_list)} reviews from the database.")
+        print(f"✅ Loaded {len(reviews_list)} filtered reviews.")
 
-        return render_template('reviews.html', reviews=reviews_list)
+        return render_template(
+            'reviews.html',
+            reviews=reviews_list,
+            total_reviews=total_reviews,
+            average_rating=average_rating,
+            rating_distribution=rating_distribution
+        )
 
     except Exception as e:
         print(f"❌ ERROR loading reviews from DB: {e}")
-        return render_template('reviews.html', reviews=[])
+        return render_template('reviews.html',
+                               reviews=[],
+                               total_reviews=0,
+                               average_rating=0,
+                               rating_distribution=defaultdict(int))
 
 
 @app.route('/support', methods=['POST', 'GET'])
@@ -398,45 +472,129 @@ def get_availability(lawyer_id):
     ])
 
 
-
 @app.route('/dashboard/<int:user_id>')
 @login_required
 def user_dashboard(user_id):
     # Проверка, что пользователь просматривает свой дашборд
-    if session['user_id'] != user_id and session['status'] != 'Admin':
+    if session.get('user_id') != user_id and session.get('status') != 'Admin':
         flash('You are not authorized to view this dashboard.', 'danger')
         return redirect(url_for('index'))
 
+    # Получаем все консультации, где текущий пользователь - клиент
     client_consultations = Consultation.query.filter_by(client_id=user_id).all()
 
+    # Устанавливаем текущее время в UTC для сравнения
+    now = datetime.now(timezone.utc)
+
+    # 1. Предстоящие
+    # Если статус не 'completed'/'cancelled' И дата/время в будущем
     upcoming_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
-        if c.status not in ['completed', 'cancelled']
+        if c.status not in ['completed', 'cancelled'] and \
+           c.date and c.date.replace(tzinfo=timezone.utc) > now
     ]
 
     # 2. Завершенные
+    # Если статус 'completed' ИЛИ статус не 'cancelled'/'upcoming' (время прошло)
     completed_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
-        if c.status == 'completed'
+        if c.status == 'completed' or \
+           (c.status not in ['cancelled'] and c.date and c.date.replace(tzinfo=timezone.utc) <= now)
     ]
 
+    # 3. Отмененные
     cancelled_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status == 'cancelled'
     ]
 
-
     return render_template(
         'user_dashboard.html',
         upcoming_meetings=upcoming_meetings,
         completed_meetings=completed_meetings,
-        cancelled_meetings=cancelled_meetings,  # <--- ПЕРЕДАЕМ НОВЫЙ СПИСОК
+        cancelled_meetings=cancelled_meetings,
     )
 
-@app.route("/add-review/<int:consultation_id>")
+
+@app.route("/add-review/<int:consultation_id>", methods=['POST'])
 @login_required
 def add_review(consultation_id):
-    pass
+    # Получаем ID клиента. Используем current_user, если Flask-Login настроен.
+    client_id = session.get('user_id')
+
+    if request.method == 'POST':
+        rating_str = request.form.get('rating')
+        text = request.form.get('text', '').strip()  # Получаем текст, удаляя пробелы
+
+        try:
+            rating = int(rating_str)
+            if not (1 <= rating <= 5):
+                flash('Rating must be between 1 and 5 stars.', 'danger')
+                return redirect(url_for('user_dashboard', user_id=client_id))
+        except (TypeError, ValueError):
+            flash('Invalid rating provided.', 'danger')
+            return redirect(url_for('user_dashboard', user_id=client_id))
+
+        # 2. Проверка консультации и прав
+        consultation = db.session.get(Consultation, consultation_id)
+
+        if not consultation:
+            flash('Consultation not found.', 'danger')
+            return redirect(url_for('user_dashboard', user_id=client_id))
+
+        if consultation.client_id != client_id:
+            flash('You are not authorized to review this consultation.', 'danger')
+            return redirect(url_for('user_dashboard', user_id=client_id))
+
+        if consultation.status != 'completed':
+            flash('Review can only be added to completed consultations.', 'danger')
+            return redirect(url_for('user_dashboard', user_id=client_id))
+
+        if consultation.review:
+            flash('You have already reviewed this consultation.', 'warning')
+            return redirect(url_for('user_dashboard', user_id=client_id))
+
+        try:
+            new_review = Review(
+                consultation_id=consultation_id,
+                lawyer_user_id=consultation.lawyer_user_id,
+                client_id=client_id,
+                rating=rating,
+                text=text,
+                date=datetime.utcnow()  # Используйте datetime.now(timezone.utc) если настроено
+            )
+
+            db.session.add(new_review)
+
+            # 4. Обновление среднего рейтинга юриста
+            lawyer = db.session.get(User, consultation.lawyer_user_id)
+            if lawyer:
+                # Получаем все отзывы, включая только что добавленный
+                all_reviews = Review.query.filter_by(lawyer_user_id=lawyer.id).all()
+
+                total_rating = sum(r.rating for r in all_reviews)
+                count = len(all_reviews)
+
+                if count > 0:
+                    lawyer.rating = round(total_rating / count, 2)  # Обновляем средний рейтинг
+                    lawyer.reviews_count = count  # Обновляем счетчик
+                    db.session.add(lawyer)
+
+            db.session.commit()
+
+            flash('Thank you! Your review has been successfully submitted.', 'success')
+
+        except IntegrityError:
+            db.session.rollback()
+            flash('Database error: This consultation may have already been reviewed.', 'danger')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'An unexpected error occurred: {e}', 'danger')
+
+        return redirect(url_for('user_dashboard', user_id=client_id))
+
+    # Если запрос GET (что не должно происходить), просто редирект
+    return redirect(url_for('user_dashboard', user_id=client_id))
 
 
 @app.route('/logout', methods=['POST', 'GET'])

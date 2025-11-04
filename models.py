@@ -184,7 +184,8 @@ class Consultation(db.Model):
             'meeting_url': self.meeting_url,
             'location_gmaps': self.location_gmaps,
             'price' : self.price,
-            'is_paid': self.payment_status == 'paid'
+            'is_paid': self.payment_status == 'paid',
+            'has_review': self.review is not None
         }
 
     def to_dict_online(self, include_lawyer=False):
