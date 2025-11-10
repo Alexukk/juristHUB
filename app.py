@@ -382,6 +382,73 @@ def sign_up():
         return redirect(url_for('user_dashboard', user_id=session['user_id']))
 
 
+@app.route('/lawyer/dashboard', methods=['GET', 'POST'])
+def lawyer_dashboard():
+    # 1. СТРОГАЯ ЗАЩИТА РОУТА И ПОЛУЧЕНИЕ ID ИЗ СЕССИИ
+    lawyer_id = session.get('user_id')
+    lawyer_status = session.get('status')
+
+    if not lawyer_id or lawyer_status != 'Lawyer':
+        flash('Доступ запрещен. Войдите как юрист.', 'danger')
+        return redirect(url_for('login'))
+
+    # 2. ПОЛУЧЕНИЕ ОБЪЕКТА ЮРИСТА
+    # Используем модель User, так как вся информация (баланс, имя) хранится там
+    lawyer = db.session.execute(select(User).filter_by(id=lawyer_id)).scalar_one_or_none()
+
+    if not lawyer:
+        session.clear()  # Очищаем недействительную сессию
+        flash('Ошибка авторизации. Войдите снова.', 'danger')
+        return redirect(url_for('login'))
+
+    # 3. ОБРАБОТКА POST-ЗАПРОСА (Смена статуса консультации)
+    if request.method == 'POST':
+        consultation_id = request.form.get('timeslot_id')
+        new_status = request.form.get('new_status')
+
+        # Получаем консультацию
+        consultation = db.session.get(Consultation, consultation_id)
+
+        # КОРРЕКТНАЯ ПРОВЕРКА: используем lawyer_user_id
+        if consultation and consultation.lawyer_user_id == lawyer_id:
+            consultation.status = new_status
+            db.session.commit()
+            flash(f'Статус консультации №{consultation_id} обновлен на "{new_status}".', 'success')
+        else:
+            flash('Ошибка: Консультация не найдена или не принадлежит вам.', 'danger')
+
+        return redirect(url_for('lawyer_dashboard'))
+
+    # 4. GET-ЗАПРОС: Получение данных о консультациях
+
+    # ФИЛЬТРАЦИЯ: используем lawyer_user_id
+    base_filter = Consultation.lawyer_user_id == lawyer_id
+
+    # a. ГОТОВЯЩИЕСЯ (Pending/Confirmed)
+    preparing_slots = Consultation.query.filter(
+        base_filter,
+        Consultation.status.in_(['pending', 'confirmed'])
+    ).order_by(Consultation.date.asc()).all()
+
+    # b. ВЫПОЛНЕННЫЕ (Completed)
+    completed_slots = Consultation.query.filter(
+        base_filter,
+        Consultation.status == 'completed'
+    ).order_by(Consultation.date.desc()).limit(10).all()
+
+    # c. ОТМЕНЕННЫЕ (Cancelled)
+    cancelled_slots = Consultation.query.filter(
+        base_filter,
+        Consultation.status == 'cancelled'
+    ).order_by(Consultation.date.desc()).limit(10).all()
+
+    # 5. РЕНДЕРИНГ ШАБЛОНА
+    return render_template('lawyer_dashboard.html',
+                           lawyer=lawyer,
+                           preparing_slots=preparing_slots,
+                           completed_slots=completed_slots,
+                           cancelled_slots=cancelled_slots)
+
 @app.route('/admin')
 @login_required
 def admin_panel():

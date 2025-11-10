@@ -45,7 +45,7 @@
                             Apply Filter</button>
                     </div>
 
-                    {# ДОБАВЛЕНО: Кнопка "Clear Filters" #}
+                    {# ADDED: Clear Filters Button #}
                     <div class="col-md-2">
                         <a href="{{ url_for('all_lawyers') }}" class="btn btn-outline-secondary btn-lg w-100">
                             <i class="fa-solid fa-broom"></i>
@@ -79,7 +79,14 @@
                                 <h5 class="fw-bold mb-0 text-primary">{{ lawyer.fullname }}</h5>
                                 <p class="mb-1 text-muted small">{{ lawyer.specialization }}</p>
                                 <div class="text-warning small">
-                                    <i class="fas fa-star"></i> {{ lawyer.rating | default('N/A') | round(1) }} ({{ lawyer.reviews_count or 0 }} Reviews)
+                                    <i class="fas fa-star"></i>
+                                    {# FIX: Safely check for rating before applying the round filter #}
+                                    {% if lawyer.rating is not none %}
+                                        {{ lawyer.rating | round(1) }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                    ({{ lawyer.reviews_count or 0 }} Reviews)
                                 </div>
                             </div>
 
@@ -93,12 +100,10 @@
                             </div>
 
                             <div class="col-md-2 col-lg-4 text-center text-lg-end p-3">
-                                {# ИЗМЕНЕНО: Создана ОДНА желтая кнопка, ведущая на страницу юриста #}
                                 <a href="{{ url_for('lawyer_page', lawyer_id=lawyer.id) }}"
                                    class="btn btn-warning fw-bold w-100">
                                     View Lawyer <i class="fas fa-arrow-right ms-1"></i>
                                 </a>
-                                {# УДАЛЕНО: Ссылка "View Profile" и кнопка "Book Now" #}
                             </div>
 
                         </div>
