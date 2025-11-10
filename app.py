@@ -11,7 +11,7 @@ from sqlalchemy import cast, Numeric, distinct
 from models import User, Review, Consultation
 from sqlalchemy import func, case, text
 import stripe
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, getcontext
 from telebot import TeleBot
 from datetime import datetime, time
@@ -553,21 +553,27 @@ def user_dashboard(user_id):
     # Устанавливаем текущее время в UTC для сравнения
     now = datetime.now(timezone.utc)
 
-    # 1. Предстоящие
-    # Если статус не 'completed'/'cancelled' И дата/время в будущем
+    # --- ДОБАВЛЕНИЕ ЛОГИКИ ЗАВЕРШЕНИЯ ПО ИСТЕЧЕНИИ 1 ЧАСА ---
+
+    # 1. Предстоящие (Upcoming)
+    # Если статус не 'completed'/'cancelled' И (дата/время + 1 час) в будущем
     upcoming_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status not in ['completed', 'cancelled'] and \
-           c.date and c.date.replace(tzinfo=timezone.utc) > now
+           c.date and (c.date.replace(tzinfo=timezone.utc) + timedelta(hours=1)) > now
+        # Проверяем, что (время начала + 1 час) еще не прошло
     ]
 
-    # 2. Завершенные
-    # Если статус 'completed' ИЛИ статус не 'cancelled'/'upcoming' (время прошло)
+    # 2. Завершенные (Completed)
+    # Если статус 'completed' ИЛИ (статус не 'cancelled' И (дата/время + 1 час) прошло)
     completed_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status == 'completed' or \
-           (c.status not in ['cancelled'] and c.date and c.date.replace(tzinfo=timezone.utc) <= now)
+           (c.status not in ['cancelled'] and c.date and (
+                       c.date.replace(tzinfo=timezone.utc) + timedelta(hours=1)) <= now)
+        # Консультация считается завершенной, если прошел час после ее начала
     ]
+    # -----------------------------------------------------------
 
     # 3. Отмененные
     cancelled_meetings = [
