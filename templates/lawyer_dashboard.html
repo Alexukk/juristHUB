@@ -1,80 +1,278 @@
 {% extends "base.html" %}
-{% block title %}Lawyer Dashboard | {{ lawyer.fullname }}{% endblock %}
+{% block title %}Dashboard | {{ lawyer.fullname }}{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <style>
+        /* Стиль для активной вкладки: синий фон, белый текст (для максимального контраста) */
+        #consultationTabs .nav-link.active {
+            background-color: #004c99 !important; /* Насыщенный синий */
+            color: white !important;
+            font-weight: bold;
+        }
+
+        /* КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ CSS: Темно-серый цвет для неактивных вкладок */
+        /* Используем общую директиву для всех неактивных ссылок в nav-pills */
+        #consultationTabs .nav-link:not(.active) {
+            /* Принудительно задаем темно-серый цвет */
+            color: #495057 !important;
+            background-color: transparent !important;
+            font-weight: 500;
+        }
+
+        /* Незначительное выделение при наведении */
+        #consultationTabs .nav-link:not(.active):hover {
+            background-color: rgba(0, 0, 0, 0.05) !important;
+        }
+    </style>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
+
+    <div class="card p-4 shadow-sm mb-4 bg-light">
+        <div class="row align-items-center">
+
+            <div class="col-md-auto text-center mb-3 mb-md-0">
+                <img src="{{ lawyer.photo_url or 'https://via.placeholder.com/150x150.png?text=Lawyer' }}"
+                     alt="{{ lawyer.fullname }}"
+                     class="rounded-circle object-fit-cover shadow-sm"
+                     style="width: 120px; height: 120px;">
+            </div>
+
+            <div class="col-md-6">
+                <h1 class="mb-1 fw-bold text-primary">{{ lawyer.fullname }}</h1>
+                <p class="lead text-muted">{{ lawyer.specialization|default('Legal Specialist') }}</p>
+                <p class="small mb-0">
+                    <i class="fas fa-envelope me-2 text-info"></i>{{ lawyer.email }}
+                </p>
+
+                {% if lawyer.zoom_link %}
+                <p class="small mb-0">
+                    <i class="fas fa-video me-2 text-danger"></i> Online Office: <a href="{{ lawyer.zoom_link }}" target="_blank" class="text-decoration-none">Zoom Link</a>
+                </p>
+                {% endif %}
+
+                {% if lawyer.office_address %}
+                <p class="small mb-0">
+                    <i class="fas fa-map-marker-alt me-2 text-warning"></i> Physical Office: {{ lawyer.office_address }}
+                </p>
+                {% endif %}
+            </div>
+
+            <div class="col-md-3 text-center text-md-end">
+                <a href="{{ url_for('edit_profile', user_id=session['user_id']) }}" class="btn btn-warning fw-bold w-100 mb-2">
+                    <i class="fas fa-user-edit me-2"></i> Edit Profile
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-info w-100">
+                    <i class="fas fa-calendar-alt me-2"></i> Manage Time Slots
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} mt-3 mb-4">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <div class="row">
 
         <div class="col-md-4">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5>My Profile</h5>
-                </div>
-                <div class="card-body">
-                    <p><strong>Name:</strong> {{ lawyer.fullname }}</p>
-                    <p><strong>Email:</strong> {{ lawyer.email }}</p>
-                    <p><strong>Balance:</strong> <span class="badge bg-success">{{ lawyer.balance|string|default('0.00') }} RUB</span></p>
-                    <p><strong>Specialization:</strong> {{ lawyer.specialization|default('Not specified') }}</p>
-                    <hr>
+            <h4 class="mb-3 text-secondary">Overview</h4>
+            <div class="card p-3 shadow-sm mb-4">
 
-                    <a href="{{ url_for('edit_profile', user_id=session['user_id']) }}" class="btn btn-warning btn-block mb-2">
-                        <i class="fas fa-user-edit"></i> Edit Profile
-                    </a>
-                    <a href="{{ url_for('index') }}" class="btn btn-info btn-block">
-                        <i class="fas fa-calendar-alt"></i> Change Schedule
-                    </a>
+                <p class="mb-1 text-muted small">Current Balance</p>
+                <h2 class="fw-bold text-success mb-3">
+                    <i class="fas fa-dollar-sign me-1"></i>{{ "%.2f"|format(lawyer.balance|float|default(0)) }}
+                </h2>
+                <hr>
+
+                {% set total_consultations = preparing_slots|length + completed_slots|length + cancelled_slots|length %}
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="fw-bold">Total Consultations:</span>
+                    <span class="badge bg-primary rounded-pill">{{ total_consultations }}</span>
+                </div>
+
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="fw-bold">Completed:</span>
+                    <span class="badge bg-success rounded-pill">{{ completed_slots|length }}</span>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <span class="fw-bold">Pending:</span>
+                    <span class="badge bg-warning text-dark rounded-pill">{{ preparing_slots|length }}</span>
                 </div>
             </div>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }} mt-3">{{ message }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+            <div class="card p-3 shadow-sm">
+                <h5 class="card-title text-secondary">My Description</h5>
+                <p class="card-text small text-muted">
+                    {{ lawyer.description or 'No professional description added yet. Edit your profile to provide more details about your experience and services.' }}
+                </p>
+                <p class="mb-0 small">
+                    <span class="fw-bold">Price per hour:</span> ${{ lawyer.price or 'N/A' }}
+                </p>
+            </div>
         </div>
 
         <div class="col-md-8">
-            <h2>My Consultations</h2>
-            <hr>
+            <h4 class="mb-3 text-secondary">Bookings & Management</h4>
+            <div class="card p-4 shadow-sm">
 
-            <ul class="nav nav-tabs" id="consultationTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="preparing-tab" data-bs-toggle="tab" data-bs-target="#preparing" type="button" role="tab" aria-controls="preparing" aria-selected="true">
-                        Preparing ({{ preparing_slots|length }})
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="completed-tab" data-bs-toggle="tab" data-bs-target="#completed" type="button" role="tab" aria-controls="completed" aria-selected="false">
-                        Completed ({{ completed_slots|length }})
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="cancelled-tab" data-bs-toggle="tab" data-bs-target="#cancelled" type="button" role="tab" aria-controls="cancelled" aria-selected="false">
-                        Cancelled ({{ cancelled_slots|length }})
-                    </button>
-                </li>
-            </ul>
+                <ul class="nav nav-pills mb-3 shadow-sm p-2 rounded bg-info" id="consultationTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active"
+                                id="preparing-tab"
+                                data-bs-toggle="tab"
+                                data-bs-target="#preparing"
+                                type="button"
+                                role="tab"
+                                aria-controls="preparing"
+                                aria-selected="true">
+                            <i class="fas fa-calendar-alt me-1"></i> Upcoming ({{ preparing_slots|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link"
+                                id="completed-tab"
+                                data-bs-toggle="tab"
+                                data-bs-target="#completed"
+                                type="button"
+                                role="tab"
+                                aria-controls="completed"
+                                aria-selected="false">
+                            <i class="fas fa-check-circle me-1"></i> Completed ({{ completed_slots|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link"
+                                id="cancelled-tab"
+                                data-bs-toggle="tab"
+                                data-bs-target="#cancelled"
+                                type="button"
+                                role="tab"
+                                aria-controls="cancelled"
+                                aria-selected="false">
+                            <i class="fas fa-times-circle me-1"></i> Cancelled ({{ cancelled_slots|length }})
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="consultationTabsContent">
 
-            <div class="tab-content border border-top-0 p-3" id="consultationTabsContent">
+                    <div class="tab-pane fade show active" id="preparing" role="tabpanel">
+                        {% set slots = preparing_slots %}
+                        {% if slots %}
+                            <div class="list-group mt-3">
+                                {% for slot in slots %}
+                                <div class="list-group-item list-group-item-action {% if slot.status == 'pending' %}list-group-item-warning{% endif %}">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1 fw-bold text-primary">Client: {{ slot.client.fullname|default('Guest') }}</h5>
+                                        <small>ID: {{ slot.id }}</small>
+                                    </div>
+                                    <p class="mb-1"><strong>Date/Time:</strong> {{ slot.date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                    <p class="mb-1"><strong>Type:</strong> {{ slot.type }}</p>
+                                    <p class="mb-1"><strong>Status:</strong>
+                                        <span class="badge
+                                            {% if slot.status == 'confirmed' %}bg-success
+                                            {% elif slot.status == 'pending' %}bg-warning text-dark
+                                            {% elif slot.status == 'completed' %}bg-info
+                                            {% elif slot.status == 'cancelled' %}bg-danger
+                                            {% else %}bg-secondary
+                                            {% endif %}
+                                            ">{{ slot.status|capitalize }}</span>
+                                    </p>
 
-                <div class="tab-pane fade show active" id="preparing" role="tabpanel" aria-labelledby="preparing-tab">
-                    {% set slots = preparing_slots %}
-                    {% set status_type = 'preparing' %}
-                    {% include 'partials/slot_list.html' %}
-                </div>
+                                    <form method="POST" action="{{ url_for('lawyer_dashboard') }}" class="mt-2">
+                                        <input type="hidden" name="timeslot_id" value="{{ slot.id }}">
 
-                <div class="tab-pane fade" id="completed" role="tabpanel" aria-labelledby="completed-tab">
-                    {% set slots = completed_slots %}
-                    {% set status_type = 'completed' %}
-                    {% include 'partials/slot_list.html' %}
-                </div>
+                                        <div class="d-inline-flex flex-wrap gap-2">
 
-                <div class="tab-pane fade" id="cancelled" role="tabpanel" aria-labelledby="cancelled-tab">
-                    {% set slots = cancelled_slots %}
-                    {% set status_type = 'cancelled' %}
-                    {% include 'partials/slot_list.html' %}
+                                            {% if slot.status != 'confirmed' %}
+                                                <button type="submit" name="new_status" value="confirmed"
+                                                        class="btn btn-sm btn-success fw-bold">
+                                                    <i class="fas fa-check me-1"></i> Confirm
+                                                </button>
+                                            {% endif %}
+
+                                            {% if slot.status == 'confirmed' or slot.status == 'pending' %}
+                                                <button type="submit" name="new_status" value="completed"
+                                                        class="btn btn-sm btn-info text-white fw-bold">
+                                                    <i class="fas fa-calendar-check me-1"></i> Complete
+                                                </button>
+                                            {% endif %}
+
+                                            {% if slot.status != 'cancelled' %}
+                                                <button type="submit" name="new_status" value="cancelled"
+                                                        class="btn btn-sm btn-danger fw-bold">
+                                                    <i class="fas fa-ban me-1"></i> Cancel
+                                                </button>
+                                            {% endif %}
+
+                                        </div>
+                                    </form>
+
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-primary border-primary border-3 border-start text-dark mt-3" role="alert">
+                                <h5 class="alert-heading">Nothing Here!</h5>
+                                <p class="mb-0">No consultations are currently preparing. You'll see new bookings here.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="tab-pane fade" id="completed" role="tabpanel">
+                        {% set slots = completed_slots %}
+                        {% if slots %}
+                            <div class="list-group mt-3">
+                                {% for slot in slots %}
+                                    <div class="list-group-item list-group-item-action list-group-item-light">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h5 class="mb-1 fw-bold text-success">Client: {{ slot.client.fullname|default('Guest') }}</h5>
+                                            <small class="text-muted">ID: {{ slot.id }}</small>
+                                        </div>
+                                        <p class="mb-1"><strong>Date/Time:</strong> {{ slot.date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                        <p class="mb-0"><strong>Status:</strong> <span class="badge bg-success">Completed</span></p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-primary border-primary border-3 border-start text-dark mt-3" role="alert">
+                                <h5 class="alert-heading">Nothing Here!</h5>
+                                <p class="mb-0">No completed consultations yet.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="tab-pane fade" id="cancelled" role="tabpanel">
+                        {% set slots = cancelled_slots %}
+                        {% if slots %}
+                            <div class="list-group mt-3">
+                                {% for slot in slots %}
+                                    <div class="list-group-item list-group-item-action list-group-item-danger">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h5 class="mb-1 fw-bold text-danger">Client: {{ slot.client.fullname|default('Guest') }}</h5>
+                                            <small class="text-muted">ID: {{ slot.id }}</small>
+                                        </div>
+                                        <p class="mb-1"><strong>Date/Time:</strong> {{ slot.date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                        <p class="mb-0"><strong>Status:</strong> <span class="badge bg-danger">Cancelled</span></p>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-primary border-primary border-3 border-start text-dark mt-3" role="alert">
+                                <h5 class="alert-heading">Nothing Here!</h5>
+                                <p class="mb-0">No cancelled consultations on record.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
                 </div>
 
             </div>
