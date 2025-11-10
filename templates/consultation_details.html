@@ -76,15 +76,20 @@
                                     Your Video Link:
                                 </p>
 
-                                {% if consultation.meeting_url %}
+                                {# ЛОГИКА: Если завершено, показываем статус вместо кнопки #}
+                                {% if consultation.status == 'completed' %}
+                                    <div class="alert alert-success mb-0 text-center fw-bold">
+                                        <i class="fas fa-check-circle me-2"></i> This consultation has been completed.
+                                    </div>
+
+                                {# СТАРАЯ ЛОГИКА: Если не завершено, показываем кнопку активации #}
+                                {% elif consultation.meeting_url %}
                                     <div id="join-button-container">
                                         <a href="{{ consultation.meeting_url }}"
                                            id="join-video-call-btn"
                                            target="_blank"
-                                           class="btn btn-lg btn-secondary w-100 shadow-sm"
-                                           style="pointer-events: none;"
-                                           aria-disabled="true"
-                                           disabled>
+                                           class="btn btn-lg btn-secondary w-100 shadow-sm disabled"
+                                           aria-disabled="true">
                                             <i class="fas fa-clock me-2"></i> Activating soon...
                                         </a>
                                         <p class="text-muted mt-2 mb-0 small text-center" id="join-info">
@@ -123,11 +128,9 @@
                         <h5 class="mt-5 mb-3 text-secondary border-top pt-3">Your Actions</h5>
 
                         {% if consultation.status == 'completed' %}
-                            <a href="/" class="btn btn-lg btn-warning w-100 shadow-sm">
-                                <i class="fas fa-pen-nib me-1"></i> Leave Review
-                            </a>
+                            {# КНОПКА ОТЗЫВА УДАЛЕНА #}
                             <p class="text-muted small mt-2 text-center">
-                                The consultation is complete. Share your feedback.
+                                The consultation is complete.
                             </p>
 
                         {% elif consultation.status not in ['completed', 'cancelled'] %}
@@ -236,34 +239,24 @@
     </div>
   </div>
 </div>
-{% if consultation.type == 'Online' and consultation.meeting_url %}
+{% if consultation.type == 'Online' and consultation.meeting_url and consultation.status != 'completed' %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
 
-        // --- ГАРАНТИРОВАННЫЙ ФИКС ДЛЯ UTC/ISO ФОРМАТА ---
-        // Используем строку ISO, переданную из Python (consultation.js_date_iso).
         const consultationDateString = "{{ consultation.js_date_iso }}";
-
-        // Создаем объект Date. JS гарантированно использует UTC.
         const scheduledTime = new Date(consultationDateString);
-
-        // Время, когда кнопка должна активироваться (за 5 минут до)
         const activationTime = new Date(scheduledTime.getTime() - (5 * 60 * 1000));
 
         const joinButton = document.getElementById('join-video-call-btn');
         const joinInfo = document.getElementById('join-info');
 
         function checkTime() {
-            // Текущее время клиента.
             const now = new Date();
 
-            // Сравниваем объекты Date.
             if (now.getTime() >= activationTime.getTime()) {
                 // Активировать кнопку
-                joinButton.classList.remove('btn-secondary');
+                joinButton.classList.remove('btn-secondary', 'disabled');
                 joinButton.classList.add('btn-success');
-                joinButton.style.pointerEvents = 'auto';
-                joinButton.removeAttribute('disabled');
                 joinButton.removeAttribute('aria-disabled');
                 joinButton.innerHTML = '<i class="fas fa-external-link-alt me-2"></i> Join Video Call Now';
 
@@ -273,15 +266,11 @@
                     joinInfo.classList.add('text-success');
                 }
 
-                // Остановить проверку
                 clearInterval(timerInterval);
             }
         }
 
-        // Запускаем проверку сразу
         checkTime();
-
-        // Запускаем интервал для периодической проверки (каждые 10 секунд)
         const timerInterval = setInterval(checkTime, 10000);
     });
 </script>
