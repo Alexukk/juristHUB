@@ -511,6 +511,7 @@ def lawyer_page(lawyer_id):
         print(f"❌ CRITICAL ERROR accessing lawyer profile: {e}")
         return "Internal Server Error", 500
 
+
 @app.route('/lawyer/<int:lawyer_id>/availability')
 def get_availability(lawyer_id):
     date_str = request.args.get('date')
@@ -522,8 +523,15 @@ def get_availability(lawyer_id):
     except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
 
-    start_dt = datetime.combine(selected_date, time.min)
-    end_dt = datetime.combine(selected_date, time.max)
+
+    now_utc = datetime.now(timezone.utc).date()
+    three_months_ahead = now_utc + timedelta(days=90)
+
+    if selected_date > three_months_ahead:
+        return jsonify({'error': 'Dates are only available for booking up to 90 days in advance.'}), 400
+
+    start_dt = datetime.combine(selected_date, time.min).replace(tzinfo=timezone.utc)
+    end_dt = datetime.combine(selected_date, time.max).replace(tzinfo=timezone.utc)
 
     slots = TimeSlot.query.filter(
         TimeSlot.lawyer_id == lawyer_id,
@@ -531,12 +539,22 @@ def get_availability(lawyer_id):
         TimeSlot.slot_datetime <= end_dt
     ).order_by(TimeSlot.slot_datetime).all()
 
-    return jsonify([
-        {
-            'time': slot.slot_datetime.strftime('%H:%M'),
-            'status': slot.status
-        } for slot in slots
-    ])
+    current_time_utc = datetime.now(timezone.utc)
+
+    available_slots = []
+
+    for slot in slots:
+
+        slot_dt_utc = slot.slot_datetime.replace(tzinfo=timezone.utc)
+
+        if slot_dt_utc > current_time_utc:
+            if slot.status == 'available':
+                available_slots.append({
+                    'time': slot.slot_datetime.strftime('%H:%M'),
+                    'status': slot.status
+                })
+
+    return jsonify(available_slots)
 
 
 @app.route('/dashboard/<int:user_id>')
