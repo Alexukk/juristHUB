@@ -3,7 +3,9 @@ from models import User, Review  # Убедитесь, что импортиро
 from werkzeug.security import generate_password_hash
 import random
 from decimal import Decimal
-from datetime import datetime, timezone # Добавим, если используется в моделях
+from datetime import datetime, timezone  # Добавим, если используется в моделях
+from TimeSlotUTLIS import generate_time_slots_for_date_range  # Убедитесь, что это правильный импорт
+from datetime import timedelta
 
 
 # Функция для генерации случайного хэша
@@ -50,7 +52,7 @@ with app.app_context():
 
     # !!! РАСКОММЕНТИРУЙТЕ, ЕСЛИ НУЖНО ОЧИСТИТЬ БАЗУ !!!
     # db.drop_all()
-    # db.create_all() # <-- Не забудьте создать заново!
+    # db.create_all()
 
     users_to_add = []
 
@@ -128,26 +130,33 @@ with app.app_context():
         users_to_add.append(client)
 
     # ---------------------------------------------
-    # 5. СОХРАНЕНИЕ ПОЛЬЗОВАТЕЛЕЙ В БАЗУ ДАННЫХ
+    # 5. СОХРАНЕНИЕ ПОЛЬЗОВАТЕЛЕЙ В БАЗУ ДАННЫХ (FIXED)
     # ---------------------------------------------
+    newly_added_count = 0
     try:
-        db.session.add_all(users_to_add)
+        for user in users_to_add:
+            # Проверяем, существует ли уже пользователь с таким email
+            existing_user = User.query.filter_by(email=user.email).first()
+            if not existing_user:
+                db.session.add(user)
+                newly_added_count += 1
+            else:
+                # Если пользователь существует, просто пропускаем
+                print(f"Skipping user creation: Email {user.email} already exists.")
+
         db.session.commit()
-        print(f"✅ SUCCESSFULLY ADDED {len(users_to_add)} USERS TO DB.")
+        print(
+            f"✅ SUCCESSFULLY ADDED {newly_added_count} NEW USERS TO DB. ({len(users_to_add) - newly_added_count} skipped).")
 
     except Exception as e:
         print(f"❌ CRITICAL ERROR DURING USER SEEDING: {e}")
         db.session.rollback()
-        # Если вы вносили изменения в модель (как мы делали с zoom_link),
-        # и не сделали миграцию, может возникнуть ошибка.
-        # Попробуйте db.drop_all() / db.create_all() в начале файла.
         exit()
 
     # ---------------------------------------------
     # 6. НАПОЛНЕНИЕ ОТЗЫВАМИ (Review)
     # ---------------------------------------------
 
-    # ... (код для создания отзывов не изменен) ...
     try:
         # Получаем ID всех клиентов и юристов
         client_ids = db.session.query(User.id).filter(User.status == 'Client').all()
@@ -163,6 +172,9 @@ with app.app_context():
         reviews_to_add = []
         REVIEW_COUNT = 30
 
+        # Логика для добавления отзывов, только если их нет.
+        # В этом простом скрипте мы будем добавлять их каждый раз,
+        # но в реальном проекте отзывы должны быть уникальными.
         for _ in range(REVIEW_COUNT):
             client_id = random.choice(client_ids)
             lawyer_id = random.choice(lawyer_ids)
@@ -182,28 +194,33 @@ with app.app_context():
 
         db.session.add_all(reviews_to_add)
         db.session.commit()
-        from TimeSlotUTLIS import generate_time_slots_for_date_range
-        from datetime import timedelta
-
-        # Генерация слотов на 90 дней для всех юристов
-        try:
-            start_date = datetime.utcnow().date()
-            end_date = start_date + timedelta(days=90)
-
-            lawyers = User.query.filter_by(status='Lawyer').all()
-            for lawyer in lawyers:
-                generate_time_slots_for_date_range(lawyer, start_date, end_date)
-
-            print(f"✅ SUCCESSFULLY GENERATED TIME SLOTS FOR {len(lawyers)} LAWYERS.")
-
-        except Exception as e:
-            print(f"❌ ERROR DURING SLOT GENERATION: {e}")
-            db.session.rollback()
 
         print(f"✅ SUCCESSFULLY ADDED {len(reviews_to_add)} REVIEWS.")
 
     except Exception as e:
         print(f"❌ CRITICAL ERROR DURING REVIEW SEEDING: {e}")
         db.session.rollback()
+        exit()
+
+    # ---------------------------------------------
+    # 7. ГЕНЕРАЦИЯ СЛОТОВ (TimeSlot)
+    # ---------------------------------------------
+    try:
+        start_date = datetime.utcnow().date()
+        end_date = start_date + timedelta(days=90)
+
+        lawyers = User.query.filter_by(status='Lawyer').all()
+
+        for lawyer in lawyers:
+            # Эта функция должна быть умной и не генерировать слоты, которые уже существуют
+            generate_time_slots_for_date_range(lawyer, start_date, end_date)
+
+        db.session.commit()  # Сохраняем все слоты, созданные в функции выше
+        print(f"✅ SUCCESSFULLY GENERATED TIME SLOTS FOR {len(lawyers)} LAWYERS (up to 90 days).")
+
+    except Exception as e:
+        print(f"❌ ERROR DURING SLOT GENERATION: {e}")
+        db.session.rollback()
+        exit()
 
 exit()

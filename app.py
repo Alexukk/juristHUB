@@ -515,46 +515,64 @@ def lawyer_page(lawyer_id):
 @app.route('/lawyer/<int:lawyer_id>/availability')
 def get_availability(lawyer_id):
     date_str = request.args.get('date')
+
     if not date_str:
         return jsonify([])
 
     try:
         selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
+        return jsonify({'error': 'Invalid date format. Expected YYYY-MM-DD'}), 400
 
+    # Получаем текущее время в UTC для всех сравнений
+    current_datetime_utc = datetime.now(timezone.utc)
+    current_date_utc = current_datetime_utc.date()
 
-    now_utc = datetime.now(timezone.utc).date()
-    three_months_ahead = now_utc + timedelta(days=90)
+    # --- 1. Ограничение: Проверка на 3 месяца вперед ---
+    three_months_ahead = current_date_utc + timedelta(days=90)
 
     if selected_date > three_months_ahead:
-        return jsonify({'error': 'Dates are only available for booking up to 90 days in advance.'}), 400
+        return jsonify({'error': 'Booking is restricted to 90 days in advance.'}), 400
 
-    start_dt = datetime.combine(selected_date, time.min).replace(tzinfo=timezone.utc)
-    end_dt = datetime.combine(selected_date, time.max).replace(tzinfo=timezone.utc)
+    # Также блокируем просмотр прошедших дней, чтобы избежать запросов на слоты,
+    # которые уже должны быть удалены или помечены как expired
+    if selected_date < current_date_utc:
+        return jsonify({'error': 'Cannot view past days availability.'}), 400
 
+    # Определяем начало и конец выбранного дня для запроса к БД
+    # В БД слоты хранятся как наивные объекты (без tzinfo), поэтому запрашиваем без tzinfo
+    start_dt = datetime.combine(selected_date, time.min)
+    end_dt = datetime.combine(selected_date, time.max)
+
+    # 2. Получаем все слоты для выбранного дня
     slots = TimeSlot.query.filter(
         TimeSlot.lawyer_id == lawyer_id,
         TimeSlot.slot_datetime >= start_dt,
         TimeSlot.slot_datetime <= end_dt
     ).order_by(TimeSlot.slot_datetime).all()
 
-    current_time_utc = datetime.now(timezone.utc)
-
-    available_slots = []
+    all_slots_with_status = []
 
     for slot in slots:
-
+        # Устанавливаем временную зону UTC для сравнения.
         slot_dt_utc = slot.slot_datetime.replace(tzinfo=timezone.utc)
 
-        if slot_dt_utc > current_time_utc:
-            if slot.status == 'available':
-                available_slots.append({
-                    'time': slot.slot_datetime.strftime('%H:%M'),
-                    'status': slot.status
-                })
+        # Начальный статус берем из БД (available, booked, pending...)
+        display_status = slot.status
 
-    return jsonify(available_slots)
+        # 3. Логика: Прошедшие слоты
+        if slot_dt_utc < current_datetime_utc:
+            # Слот, который уже прошел, помечаем как 'expired'
+            display_status = 'expired'
+
+        # Возвращаем статус: 'available' (доступно), 'booked' (занято), 'expired' (прошло)
+        all_slots_with_status.append({
+            'time': slot.slot_datetime.strftime('%H:%M'),
+            'status': display_status
+        })
+
+    # Возвращаем полный список слотов с актуальными статусами
+    return jsonify(all_slots_with_status)
 
 
 @app.route('/dashboard/<int:user_id>')
