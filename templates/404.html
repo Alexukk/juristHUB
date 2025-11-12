@@ -1,27 +1,55 @@
 {% extends "base.html" %}
 
 {% block title %}
-    404 - Page Not Found
+    404 - Error: Page Not Found
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-center" style="min-height: 85vh;">
-    <div class="text-center p-4">
+<style>
+    /*
+    Добавляем CSS для эффекта "подъема" кнопки при наведении.
+    Это имитирует эффект transform: translateY(-2px) из Tailwind,
+    но через стандартные стили Bootstrap, если их нет.
+    */
+    .btn-hover-lift {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .btn-hover-lift:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Усиленная тень */
+    }
+    .btn-hover-lift:active {
+        transform: translateY(0); /* Возвращаем при нажатии */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+    }
+</style>
+
+<div class="d-flex align-items-center justify-content-center bg-light" style="min-height: 85vh;">
+    <div class="text-center p-4 p-md-5 bg-white rounded-lg shadow-lg">
+
+        <p class="text-uppercase text-muted fw-bold mb-2">Error Processing Request</p>
 
         <p class="display-1 fw-bolder text-warning mb-4">404</p>
 
-        <h1 class="display-3 fw-bold text-dark mb-3">
+        <h1 class="display-5 fw-bold text-dark mb-3">
             Page Not Found
         </h1>
 
-        <p class="lead text-muted mb-5">
-            We're sorry, the page you requested could not be found.
+        <p class="lead text-secondary mb-5">
+            We're sorry, the page you requested could not be found. This might be due to a broken link, a mistyped URL, or the page may have been moved or deleted.
         </p>
 
-        <a href="{{ url_for('index') }}" class="btn btn-primary btn-lg shadow-sm">
+        <a href="{{ url_for('index') }}"
+           class="btn btn-primary btn-lg shadow-sm btn-hover-lift">
             <i class="bi bi-house-door-fill me-2"></i>
             Go to Homepage
         </a>
+
+        <div class="mt-4 pt-3 border-top">
+            <p class="text-sm text-muted mb-0">
+                If the problem persists, please <a href="{{ url_for('support') }}" class="text-primary fw-medium text-decoration-none">Contact Support</a>.
+            </p>
+        </div>
     </div>
 </div>
 {% endblock %}
