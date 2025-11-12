@@ -74,6 +74,13 @@ def process_consultation_data(consultation, user_model, current_time):
         return 'completed', meeting_data
 
 
+
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return render_template('404.html'), 404
+
+
 @app.route('/')
 def index():
     print("ROUTE: Accessing index page.")
