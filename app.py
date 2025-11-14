@@ -724,40 +724,80 @@ def logout():
     return render_template('logout.html')
 
 
-
 @app.route('/edit-profile/<int:user_id>', methods=['POST', 'GET'])
 @login_required
 def edit_profile(user_id):
-    if session['user_id'] == user_id or session['status'] == 'Admin':
-        if request.method == 'GET':
-            return render_template('profile-edit.html')
-        else:
-            username = request.form.get('username')
-            email = request.form.get('email')
-            try:
-                user = User.query.get_or_404(session['user_id'])
-                user.fullname = username
-                user.email = email
-                if request.form.get('password'):
-                    if request.form.get('password') != request.form.get('confirm_password'):
-                        flash('New password and confirmation do not match.', 'warning')
-                        return redirect(url_for('edit_profile', user_id=user_id))
-                    password = request.form.get('password')
-                    user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
-                session['email'] = email
-                session['username'] = username
-                db.session.commit()
-                flash('Your account details have been successfully updated!', 'success')
-            except Exception as e:
-                db.session.rollback()
-                print('An error occured while changing profile info: \n', e)
-                flash('An error occurred', 'danger')
-    else:
-        flash("You can't edit details of another user", "danger")
+    # 1. Проверка прав доступа: Пользователь может редактировать только свой профиль или быть Админом
+    if session.get('user_id') != user_id and session.get('status') != 'Admin':
+        flash("You can't edit details of another user.", "danger")
         return redirect(url_for('index'))
 
+    user = db.session.get(User, user_id)
+    if not user:
+        flash('User not found.', 'danger')
+        return redirect(url_for('index'))
 
-    return redirect(url_for('user_dashboard', user_id=session['user_id']))
+    # --- GET-запрос: Рендеринг шаблона ---
+    if request.method == 'GET':
+        # Передаем объект user в шаблон для заполнения полей
+        return render_template('edit-profile.html', user=user)
+
+        # --- POST-запрос: Обработка формы ---
+    else:
+        # ОБЩИЕ ПОЛЯ (для всех пользователей)
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+
+        try:
+            # 1. ОБНОВЛЕНИЕ БАЗОВЫХ ПОЛЕЙ
+            user.username = username
+            user.email = email
+
+            # 2. СМЕНА ПАРОЛЯ
+            if password:
+                if password != confirm_password:
+                    flash('New password and confirmation do not match.', 'warning')
+                    return redirect(url_for('edit_profile', user_id=user_id))
+
+                # Предполагаем, что generate_password_hash импортирован
+                user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+
+            # 3. ОБНОВЛЕНИЕ ПОЛЕЙ ЮРИСТА (ЕСЛИ СТАТУС LAWYER)
+            if user.status == 'Lawyer':
+                new_price = request.form.get('price', type=float)
+                new_description = request.form.get('description')
+                # НОВЫЕ ПОЛЯ: Zoom Link и Office Address
+                new_zoom_link = request.form.get('zoom_link')
+                new_office_address = request.form.get('office_address')
+
+                # Валидация цены
+                if new_price is None or new_price <= 0:
+                    flash('Consultation Price must be a positive number.', 'warning')
+                    return redirect(url_for('edit_profile', user_id=user_id))
+
+                user.price = new_price
+                user.description = new_description
+                user.zoom_link = new_zoom_link  # Сохранение новой ссылки Zoom
+                user.office_address = new_office_address  # Сохранение нового адреса офиса
+
+            # 4. КОММИТ И ОБНОВЛЕНИЕ СЕССИИ
+            db.session.commit()
+
+            # Обновляем сессию только после успешного коммита
+            session['email'] = user.email
+            session['username'] = user.username
+
+            flash('Your account details have been successfully updated! ✨', 'success')
+
+        except Exception as e:
+            db.session.rollback()
+            print('An error occured while changing profile info: \n', e)
+            flash('An error occurred while updating the profile.', 'danger')
+            return redirect(url_for('edit_profile', user_id=user_id))
+
+    return redirect(url_for('user_dashboard', user_id=user_id))
 
 
 # STRIPE PAYMENTS LOGIC
