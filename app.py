@@ -391,65 +391,52 @@ def sign_up():
 
 @app.route('/lawyer/dashboard', methods=['GET', 'POST'])
 def lawyer_dashboard():
-    # 1. СТРОГАЯ ЗАЩИТА РОУТА И ПОЛУЧЕНИЕ ID ИЗ СЕССИИ
     lawyer_id = session.get('user_id')
     lawyer_status = session.get('status')
 
     if not lawyer_id or lawyer_status != 'Lawyer':
-        flash('Доступ запрещен. Войдите как юрист.', 'danger')
+        flash('Access denied. Please log in as a lawyer.', 'danger')
         return redirect(url_for('login'))
 
-    # 2. ПОЛУЧЕНИЕ ОБЪЕКТА ЮРИСТА
-    # Используем модель User, так как вся информация (баланс, имя) хранится там
     lawyer = db.session.execute(select(User).filter_by(id=lawyer_id)).scalar_one_or_none()
 
     if not lawyer:
-        session.clear()  # Очищаем недействительную сессию
-        flash('Ошибка авторизации. Войдите снова.', 'danger')
+        session.clear()
+        flash('Authentication Error. Please try logging in again.', 'danger')
         return redirect(url_for('login'))
 
-    # 3. ОБРАБОТКА POST-ЗАПРОСА (Смена статуса консультации)
     if request.method == 'POST':
         consultation_id = request.form.get('timeslot_id')
         new_status = request.form.get('new_status')
 
-        # Получаем консультацию
         consultation = db.session.get(Consultation, consultation_id)
 
-        # КОРРЕКТНАЯ ПРОВЕРКА: используем lawyer_user_id
         if consultation and consultation.lawyer_user_id == lawyer_id:
             consultation.status = new_status
             db.session.commit()
-            flash(f'Статус консультации №{consultation_id} обновлен на "{new_status}".', 'success')
+            flash(f'Consultation No.{consultation_id} status updated to "{new_status}".', 'success')
         else:
-            flash('Ошибка: Консультация не найдена или не принадлежит вам.', 'danger')
+            flash('Error: Consultation not found or does not belong to you.', 'danger')
 
         return redirect(url_for('lawyer_dashboard'))
 
-    # 4. GET-ЗАПРОС: Получение данных о консультациях
-
-    # ФИЛЬТРАЦИЯ: используем lawyer_user_id
     base_filter = Consultation.lawyer_user_id == lawyer_id
 
-    # a. ГОТОВЯЩИЕСЯ (Pending/Confirmed)
     preparing_slots = Consultation.query.filter(
         base_filter,
         Consultation.status.in_(['pending', 'confirmed'])
     ).order_by(Consultation.date.asc()).all()
 
-    # b. ВЫПОЛНЕННЫЕ (Completed)
     completed_slots = Consultation.query.filter(
         base_filter,
         Consultation.status == 'completed'
     ).order_by(Consultation.date.desc()).limit(10).all()
 
-    # c. ОТМЕНЕННЫЕ (Cancelled)
     cancelled_slots = Consultation.query.filter(
         base_filter,
         Consultation.status == 'cancelled'
     ).order_by(Consultation.date.desc()).limit(10).all()
 
-    # 5. РЕНДЕРИНГ ШАБЛОНА
     return render_template('lawyer_dashboard.html',
                            lawyer=lawyer,
                            preparing_slots=preparing_slots,
@@ -751,20 +738,16 @@ def edit_profile(user_id):
         confirm_password = request.form.get('confirm_password')
 
         try:
-            # 1. ОБНОВЛЕНИЕ БАЗОВЫХ ПОЛЕЙ
             user.username = username
             user.email = email
 
-            # 2. СМЕНА ПАРОЛЯ
             if password:
                 if password != confirm_password:
                     flash('New password and confirmation do not match.', 'warning')
                     return redirect(url_for('edit_profile', user_id=user_id))
 
-                # Предполагаем, что generate_password_hash импортирован
                 user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
-            # 3. ОБНОВЛЕНИЕ ПОЛЕЙ ЮРИСТА (ЕСЛИ СТАТУС LAWYER)
             if user.status == 'Lawyer':
                 new_price = request.form.get('price', type=float)
                 new_description = request.form.get('description')
@@ -772,7 +755,6 @@ def edit_profile(user_id):
                 new_zoom_link = request.form.get('zoom_link')
                 new_office_address = request.form.get('office_address')
 
-                # Валидация цены
                 if new_price is None or new_price <= 0:
                     flash('Consultation Price must be a positive number.', 'warning')
                     return redirect(url_for('edit_profile', user_id=user_id))
@@ -782,10 +764,8 @@ def edit_profile(user_id):
                 user.zoom_link = new_zoom_link  # Сохранение новой ссылки Zoom
                 user.office_address = new_office_address  # Сохранение нового адреса офиса
 
-            # 4. КОММИТ И ОБНОВЛЕНИЕ СЕССИИ
             db.session.commit()
 
-            # Обновляем сессию только после успешного коммита
             session['email'] = user.email
             session['username'] = user.username
 
@@ -800,7 +780,6 @@ def edit_profile(user_id):
     return redirect(url_for('user_dashboard', user_id=user_id))
 
 
-# STRIPE PAYMENTS LOGIC
 
 
 @app.route('/consultation/<int:lawyer_id>/checkout', methods=['POST', 'GET'])
@@ -809,7 +788,6 @@ def payment_provider(lawyer_id):
     if request.method == 'POST':
         client_id = session.get('user_id')
         if not client_id:
-            # Убедитесь, что 'login_route' существует
             return redirect(url_for('login_route'))
 
         date_str = request.form.get('booking_date')
@@ -820,22 +798,18 @@ def payment_provider(lawyer_id):
         if not lawyer or lawyer.status != 'Lawyer':
             return "Lawyer not found or is inactive", 404
 
-        # 🚨 ФИКС 1: Проверка наличия даты/времени. Иначе date_str и time_str будут None
         if not date_str or not time_str:
             # print("Missing date or time in form data.")
             return "Missing required date or time for booking.", 400
 
-        # 🚨 ФИКС 2: Проверка наличия цены (lawyer.price не должно быть None)
         if lawyer.price is None:
             # print(f"Price is missing for lawyer ID {lawyer_id}.")
             return "Consultation price is not set for this lawyer.", 400
 
         try:
-            # Теперь float(lawyer.price) безопасно, так как мы проверили на None
             price_usd = float(lawyer.price)
             consultation_price_cents = int(price_usd * 100)
 
-            # Строка гарантированно не содержит None, но может быть неверного формата
             booking_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M').replace(
                 tzinfo=timezone.utc)
 
@@ -1155,17 +1129,19 @@ def consultation_details(consultation_id):
 @app.route('/lawyer/slots/manage', methods=['GET'])
 @login_required
 def manage_slots():
-    # Используем 'user_id' из сессии
     lawyer_id = session.get('user_id')
 
     if not lawyer_id:
-        flash('Please log in to manage your schedule.', 'error')
+        flash('Please log in as lawyer to manage your schedule.', 'error')
+        return redirect(url_for('login'))
+
+    if not session['status'] == 'Lawyer':
+        flash('Please log in as lawyer to manage your schedule.', 'error')
         return redirect(url_for('login'))
 
     now_utc = datetime.now(timezone.utc)
 
     try:
-        # Используем современный синтаксис SQLAlchemy 2.0+
         stmt = select(TimeSlot).where(
             TimeSlot.lawyer_id == lawyer_id,
             TimeSlot.slot_datetime > now_utc
@@ -1178,14 +1154,12 @@ def manage_slots():
         flash('Could not retrieve schedule data due to a server error.', 'danger')
         future_slots = []
 
-    # Группировка слотов по дате для шаблона
     slots_by_day = {}
     for slot in future_slots:
         date_key_raw = slot.slot_datetime.strftime('%Y-%m-%d')
 
         if date_key_raw not in slots_by_day:
             slots_by_day[date_key_raw] = {
-                # Форматирование для английского UI
                 'formatted_date': slot.slot_datetime.strftime('%B %d, %Y'),
                 'slots': []
             }
@@ -1198,6 +1172,10 @@ def manage_slots():
 @login_required
 def update_slot_status():
     lawyer_id = session.get('user_id')
+
+    if not session['status'] == 'Lawyer':
+        flash('Please log in as lawyer to manage your schedule.', 'error')
+        return redirect(url_for('login'))
 
     if not lawyer_id:
         return jsonify({'success': False, 'message': 'Authentication required.'}), 401
