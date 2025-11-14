@@ -321,8 +321,8 @@ def login():
 
         flash(f'Welcome back, {user.fullname}!', 'success')
 
-        if user.status == 'Admin':
-            return redirect(url_for('admin_panel'))
+        if user.status == 'Lawyer':
+            return redirect(url_for('lawyer_dashboard'))
         return redirect(url_for('user_dashboard', user_id=user.id))
 
     else:

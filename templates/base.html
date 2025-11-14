@@ -59,9 +59,15 @@
                         <a href="{{ url_for('login') }}" class="btn btn-outline-light me-2">Log In</a>
                         <a href="{{ url_for('sign_up') }}" class="btn btn-light">Sign Up</a>
                     {% else %}
-                        <a href="{{ url_for('user_dashboard', user_id=session.get('user_id')) }}" class="btn btn-light">
-                            <i class="fas fa-user me-1"></i>Profile
-                        </a>
+                    {% if session.get('status') == 'Lawyer' %}
+                            <a href="{{ url_for('lawyer_dashboard')}}" class="btn btn-light">
+                                <i class="fas fa-user me-1"></i>Profile
+                            </a>
+                    {% else %}
+                            <a href="{{ url_for('user_dashboard', user_id=session.get('user_id')) }}" class="btn btn-light">
+                                <i class="fas fa-user me-1"></i>Profile
+                            </a>
+                    {% endif %}
                         <a href="{{ url_for('logout') }}" class="btn btn-outline-light ms-2">
                              <i class="fas fa-sign-out-alt me-1"></i>Log Out
                         </a>
