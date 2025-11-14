@@ -572,10 +572,12 @@ def get_availability(lawyer_id):
 @app.route('/dashboard/<int:user_id>')
 @login_required
 def user_dashboard(user_id):
-    # Проверка, что пользователь просматривает свой дашборд
     if session.get('user_id') != user_id and session.get('status') != 'Admin':
         flash('You are not authorized to view this dashboard.', 'danger')
         return redirect(url_for('index'))
+
+    if session.get('status') == 'Lawyer':
+        return redirect(url_for("lawyer_dashboard"))
 
     # Получаем все консультации, где текущий пользователь - клиент
     client_consultations = Consultation.query.filter_by(client_id=user_id).all()
