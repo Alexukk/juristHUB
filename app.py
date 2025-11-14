@@ -764,11 +764,12 @@ def edit_profile(user_id):
 
 
 @app.route('/consultation/<int:lawyer_id>/checkout', methods=['POST', 'GET'])
-@login_required
+# @login_required # Оставляем, если он у вас определен
 def payment_provider(lawyer_id):
     if request.method == 'POST':
         client_id = session.get('user_id')
         if not client_id:
+            # Убедитесь, что 'login_route' существует
             return redirect(url_for('login_route'))
 
         date_str = request.form.get('booking_date')
@@ -779,12 +780,29 @@ def payment_provider(lawyer_id):
         if not lawyer or lawyer.status != 'Lawyer':
             return "Lawyer not found or is inactive", 404
 
+        # 🚨 ФИКС 1: Проверка наличия даты/времени. Иначе date_str и time_str будут None
+        if not date_str or not time_str:
+            # print("Missing date or time in form data.")
+            return "Missing required date or time for booking.", 400
+
+        # 🚨 ФИКС 2: Проверка наличия цены (lawyer.price не должно быть None)
+        if lawyer.price is None:
+            # print(f"Price is missing for lawyer ID {lawyer_id}.")
+            return "Consultation price is not set for this lawyer.", 400
+
         try:
+            # Теперь float(lawyer.price) безопасно, так как мы проверили на None
             price_usd = float(lawyer.price)
             consultation_price_cents = int(price_usd * 100)
-            booking_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M').replace(tzinfo=timezone.utc)
+
+            # Строка гарантированно не содержит None, но может быть неверного формата
+            booking_datetime = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M').replace(
+                tzinfo=timezone.utc)
+
         except (ValueError, TypeError) as e:
-            return f"Invalid data (price or datetime): {e}", 500
+            # Ловит ошибки, если цена не число или datetime неверного формата
+            # print(f"Data conversion error (price or datetime format): {e}")
+            return f"Invalid data (price or datetime format): {e}", 500
 
         # 🔍 Проверка слота
         slot = TimeSlot.query.filter_by(
@@ -800,49 +818,60 @@ def payment_provider(lawyer_id):
         meeting_url = lawyer.zoom_link if consultation_type == 'Online' else None
         location_gmaps = lawyer.office_address if consultation_type == 'Offline' else None
 
-        # 📝 Создание консультации
-        new_consultation = Consultation(
-            client_id=client_id,
-            lawyer_user_id=lawyer_id,
-            date=booking_datetime,
-            type=consultation_type,
-            status='pending',
-            payment_status='unpaid',
-            meeting_url=meeting_url,
-            location_gmaps=location_gmaps,
-            price=price_usd,
-            time_slot_id=slot.id
-        )
-        db.session.add(new_consultation)
-        db.session.flush()  # Получаем ID до коммита
+        # 📝 Создание консультации (В критической секции с обработкой ошибок)
+        try:
+            new_consultation = Consultation(
+                client_id=client_id,
+                lawyer_user_id=lawyer_id,
+                date=booking_datetime,
+                type=consultation_type,
+                status='pending',
+                payment_status='unpaid',
+                meeting_url=meeting_url,
+                location_gmaps=location_gmaps,
+                price=price_usd,
+                time_slot_id=slot.id
+            )
+            db.session.add(new_consultation)
+            db.session.flush()
 
-        # 🔒 Блокировка слота
-        slot.status = 'booked'
-        slot.consultation_id = new_consultation.id
-        db.session.add(slot)
-        db.session.commit()
+            # 🔒 Блокировка слота
+            slot.status = 'booked'
+            slot.consultation_id = new_consultation.id
+            db.session.add(slot)
+            db.session.commit()
+
+        except Exception as e:
+            db.session.rollback()
+            # print(f"Database error during slot reservation: {e}")
+            return "Server error while reserving slot.", 500
 
         # 💳 Stripe Checkout
-        stripe_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': f'Consultation with {lawyer.fullname}',
-                        'description': f'Type: {consultation_type} on {date_str} at {time_str}',
+        try:
+            stripe_session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'product_data': {
+                            'name': f'Consultation with {lawyer.fullname}',
+                            'description': f'Type: {consultation_type} on {date_str} at {time_str}',
+                        },
+                        'unit_amount': consultation_price_cents,
                     },
-                    'unit_amount': consultation_price_cents,
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            metadata={'consultation_id': new_consultation.id},
-            success_url=url_for('payment_success', _external=True) + '?consultation_id=' + str(new_consultation.id),
-            cancel_url=url_for('payment_canceled', _external=True) + '?consultation_id=' + str(new_consultation.id),
-        )
+                    'quantity': 1,
+                }],
+                mode='payment',
+                metadata={'consultation_id': new_consultation.id},
+                success_url=url_for('payment_success', _external=True) + '?consultation_id=' + str(new_consultation.id),
+                cancel_url=url_for('payment_canceled', _external=True) + '?consultation_id=' + str(new_consultation.id),
+            )
+            return redirect(stripe_session.url)
 
-        return redirect(stripe_session.url)
+        except Exception as e:
+            # print(f"Stripe session creation failed: {e}")
+            flash('Payment system error. Please try again.', 'danger')
+            return redirect(url_for('lawyer_profile', lawyer_id=lawyer_id))  # Перенаправить обратно на профиль
 
     return redirect('/')
 
@@ -1084,7 +1113,9 @@ def consultation_details(consultation_id):
 
 
 @app.route('/lawyer/slots/manage', methods=['GET'])
+@login_required
 def manage_slots():
+    # Используем 'user_id' из сессии
     lawyer_id = session.get('user_id')
 
     if not lawyer_id:
@@ -1093,17 +1124,28 @@ def manage_slots():
 
     now_utc = datetime.now(timezone.utc)
 
-    future_slots = TimeSlot.query.filter(
-        TimeSlot.lawyer_id == lawyer_id,
-        TimeSlot.slot_datetime > now_utc
-    ).order_by(TimeSlot.slot_datetime).all()
+    try:
+        # Используем современный синтаксис SQLAlchemy 2.0+
+        stmt = select(TimeSlot).where(
+            TimeSlot.lawyer_id == lawyer_id,
+            TimeSlot.slot_datetime > now_utc
+        ).order_by(TimeSlot.slot_datetime)
 
+        future_slots = db.session.scalars(stmt).all()
+
+    except Exception as e:
+
+        flash('Could not retrieve schedule data due to a server error.', 'danger')
+        future_slots = []
+
+    # Группировка слотов по дате для шаблона
     slots_by_day = {}
     for slot in future_slots:
         date_key_raw = slot.slot_datetime.strftime('%Y-%m-%d')
 
         if date_key_raw not in slots_by_day:
             slots_by_day[date_key_raw] = {
+                # Форматирование для английского UI
                 'formatted_date': slot.slot_datetime.strftime('%B %d, %Y'),
                 'slots': []
             }
@@ -1113,6 +1155,7 @@ def manage_slots():
 
 
 @app.route('/lawyer/slots/update_status', methods=['POST'])
+@login_required
 def update_slot_status():
     lawyer_id = session.get('user_id')
 
@@ -1122,21 +1165,30 @@ def update_slot_status():
     slot_id = request.json.get('slot_id')
     new_status = request.json.get('new_status')
 
-    slot = TimeSlot.query.get(slot_id)
+    # 1. Валидация входных данных
+    if not slot_id or new_status not in ['available', 'unavailable']:
+        return jsonify({'success': False, 'message': 'Invalid input data.'}), 400
 
+    slot = db.session.get(TimeSlot, slot_id)
+
+    # 2. Валидация доступа
     if not slot or slot.lawyer_id != lawyer_id:
         return jsonify({'success': False, 'message': 'Slot not found or access denied.'}), 403
 
+    # 3. Валидация статуса
     if slot.status == 'booked':
         return jsonify({'success': False, 'message': 'Booked slots cannot be changed.'}), 400
 
-    if new_status in ['available', 'unavailable']:
+    # 4. Обновление БД
+    try:
         slot.status = new_status
         db.session.commit()
         return jsonify({'success': True, 'new_status': slot.status}), 200
-    else:
-        return jsonify({'success': False, 'message': 'Invalid status provided.'}), 400
 
+    except Exception as e:
+        db.session.rollback()
+        # app.logger.error(f"DB commit error updating slot {slot_id}: {e}")
+        return jsonify({'success': False, 'message': 'A server error occurred during update.'}), 500
 
 with app.app_context():
     db.create_all()
