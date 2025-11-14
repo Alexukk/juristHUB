@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Manage Schedule
+{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h1 class="mb-4">Schedule Management</h1>
+    <p class="lead text-muted">Toggle the availability of your future time slots (Available / Blocked).</p>
+
+    {% if not slots_by_day %}
+    <div class="alert alert-info">
+        You currently have no upcoming slots. Please add some so clients can book them.
+    </div>
+    {% endif %}
+
+    {% for date_raw, day_data in slots_by_day.items() %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light fw-bold h4">
+            {{ day_data.formatted_date }}
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for slot in day_data.slots %}
+                {# Define English Statuses and corresponding Bootstrap Classes #}
+                {% set status_info = {
+                    'available': {'class': 'success', 'text': 'Available'},
+                    'booked': {'class': 'danger', 'text': 'Booked'},
+                    'unavailable': {'class': 'secondary', 'text': 'Blocked'}
+                }.get(slot.status, {'class': 'secondary', 'text': 'Unknown'}) %}
+
+                <div class="col-6 col-md-4 col-lg-3 mb-3">
+                    <div class="p-3 border rounded d-flex justify-content-between align-items-center bg-{{ status_info.class }}-subtle text-{{ status_info.class }}">
+
+                        <span class="fw-bold">{{ slot.slot_datetime.strftime('%H:%M') }}</span>
+
+                        {% if slot.status == 'booked' %}
+                            <span class="badge bg-danger">{{ status_info.text }}</span>
+                        {% else %}
+                            <button
+                                class="btn btn-sm btn-outline-{{ status_info.class }} btn-toggle-slot"
+                                data-slot-id="{{ slot.id }}"
+                                data-current-status="{{ slot.status }}"
+                                data-bs-toggle="tooltip" data-bs-placement="top" title="Click to change status"
+                                id="slot-btn-{{ slot.id }}"
+                            >
+                                {{ status_info.text }}
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleButtons = document.querySelectorAll('.btn-toggle-slot');
+
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const slotId = this.dataset.slotId;
+                const currentStatus = this.dataset.currentStatus;
+
+                // Toggle status: available <-> unavailable
+                const newStatus = (currentStatus === 'available') ? 'unavailable' : 'available';
+
+                fetch('{{ url_for("update_slot_status") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ slot_id: slotId, new_status: newStatus })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Define new status info for UI update
+                        let newClass, newText;
+                        if (newStatus === 'available') {
+                            newClass = 'success';
+                            newText = 'Available';
+                        } else {
+                            newClass = 'secondary';
+                            newText = 'Blocked';
+                        }
+
+                        // Update button text and classes
+                        this.textContent = newText;
+                        this.className = `btn btn-sm btn-outline-${newClass} btn-toggle-slot`;
+
+                        // Update parent container classes
+                        const parentDiv = this.closest('.p-3');
+                        parentDiv.className = `p-3 border rounded d-flex justify-content-between align-items-center bg-${newClass}-subtle text-${newClass}`;
+
+                        // Update data-attribute for next click
+                        this.dataset.currentStatus = newStatus;
+
+                        // Optional: show a small success message
+                        // alert('Status updated to: ' + newText);
+
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert('A network or server error occurred.');
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}

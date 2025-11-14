@@ -1082,6 +1082,62 @@ def consultation_details(consultation_id):
         is_lawyer=is_lawyer
     )
 
+
+@app.route('/lawyer/slots/manage', methods=['GET'])
+def manage_slots():
+    lawyer_id = session.get('user_id')
+
+    if not lawyer_id:
+        flash('Please log in to manage your schedule.', 'error')
+        return redirect(url_for('login'))
+
+    now_utc = datetime.now(timezone.utc)
+
+    future_slots = TimeSlot.query.filter(
+        TimeSlot.lawyer_id == lawyer_id,
+        TimeSlot.slot_datetime > now_utc
+    ).order_by(TimeSlot.slot_datetime).all()
+
+    slots_by_day = {}
+    for slot in future_slots:
+        date_key_raw = slot.slot_datetime.strftime('%Y-%m-%d')
+
+        if date_key_raw not in slots_by_day:
+            slots_by_day[date_key_raw] = {
+                'formatted_date': slot.slot_datetime.strftime('%B %d, %Y'),
+                'slots': []
+            }
+        slots_by_day[date_key_raw]['slots'].append(slot)
+
+    return render_template('manage_slots.html', slots_by_day=slots_by_day)
+
+
+@app.route('/lawyer/slots/update_status', methods=['POST'])
+def update_slot_status():
+    lawyer_id = session.get('user_id')
+
+    if not lawyer_id:
+        return jsonify({'success': False, 'message': 'Authentication required.'}), 401
+
+    slot_id = request.json.get('slot_id')
+    new_status = request.json.get('new_status')
+
+    slot = TimeSlot.query.get(slot_id)
+
+    if not slot or slot.lawyer_id != lawyer_id:
+        return jsonify({'success': False, 'message': 'Slot not found or access denied.'}), 403
+
+    if slot.status == 'booked':
+        return jsonify({'success': False, 'message': 'Booked slots cannot be changed.'}), 400
+
+    if new_status in ['available', 'unavailable']:
+        slot.status = new_status
+        db.session.commit()
+        return jsonify({'success': True, 'new_status': slot.status}), 200
+    else:
+        return jsonify({'success': False, 'message': 'Invalid status provided.'}), 400
+
+
 with app.app_context():
     db.create_all()
     print("DB check: db.create_all() executed.")
