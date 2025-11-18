@@ -29,6 +29,19 @@ chat_id = os.getenv('CHAT_ID')
 stripe.api_key = os.getenv("STRIPE_TEST_PRIVATE")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('status') != 'Admin':
+            flash('Access to this page is restricted to Administrators.', 'danger')
+
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 def login_required(f):
 
     @wraps(f)
