@@ -43,13 +43,10 @@ def login_required(f):
 
 
 def process_consultation_data(consultation, user_model, current_time):
-    """Преобразует объект Consultation в словарь для шаблона и сортирует его."""
 
-    # 1. Получение имени юриста
     lawyer = db.session.get(user_model, consultation.lawyer_user_id)
     lawyer_name = lawyer.fullname if lawyer else "Unknown Lawyer"
 
-    # 2. Создание словаря с данными
     meeting_data = {
         'id': consultation.id,
         'date': consultation.date.strftime('%Y-%m-%d') if consultation.date else 'N/A',
