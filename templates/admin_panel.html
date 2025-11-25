@@ -1,21 +1,33 @@
 {% extends "base.html" %}
 
-{% block title %}Simple Admin View{% endblock %}
+{% block title %}Admin Dashboard (Read-Only){% endblock %}
 
 {% block content %}
-<header class="py-4 bg-light border-bottom">
+<header class="py-4 bg-dark text-white border-bottom shadow-sm">
     <div class="container">
-        <h1 class="fw-bold text-dark">Simple Admin Dashboard</h1>
-        <p class="lead text-muted">Read-only overview of core data for project preview.</p>
+        <h1 class="fw-bold"><i class="bi bi-gear-fill me-2"></i> Simple Admin Dashboard</h1>
+        <p class="lead text-muted">Read-only overview of core application data for monitoring and quick navigation to editing.</p>
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light mt-2">Log Out</a>
     </div>
 </header>
 
 <section class="py-5">
     <div class="container">
-        <h2 class="mb-4 text-primary">👥 All Users ({{ users | length }})</h2>
-        <div class="table-responsive mb-5">
-            <table class="table table-striped table-bordered table-sm">
-                <thead class="table-dark">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <h2 class="mb-3 mt-4 text-primary">👥 User Management ({{ users | length }} Total)</h2>
+        <div class="table-responsive mb-5 shadow-sm bg-white rounded">
+            <table class="table table-hover table-sm">
+                <thead class="table-primary">
                     <tr>
                         <th>ID</th>
                         <th>Full Name</th>
@@ -23,6 +35,7 @@
                         <th>Status</th>
                         <th>Balance</th>
                         <th>Is Admin?</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -31,19 +44,27 @@
                         <td>{{ user.id }}</td>
                         <td>{{ user.fullname }}</td>
                         <td>{{ user.email }}</td>
-                        <td><span class="badge bg-secondary">{{ user.status }}</span></td>
-                        <td>${{ user.balance | round(2) | default('0.00', true) }}</td>
+                        <td><span class="badge
+                            {% if user.status == 'Admin' %}bg-danger
+                            {% elif user.status == 'Lawyer' %}bg-success
+                            {% else %}bg-secondary{% endif %}">
+                            {{ user.status }}
+                        </span></td>
+                        <td><span class="text-success fw-bold">${{ user.balance | round(2) | default('0.00', true) }}</span></td>
                         <td>{% if user.isAdmin %}<span class="badge bg-danger">Yes</span>{% else %}No{% endif %}</td>
+                        <td>
+                            <a href="{{ url_for('edit_profile', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">Change Details</a>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
 
-        <h2 class="mb-4 text-primary">📅 All Consultations ({{ consultations | length }})</h2>
-        <div class="table-responsive">
-            <table class="table table-striped table-bordered table-sm">
-                <thead class="table-dark">
+        <h2 class="mb-3 mt-4 text-primary">📅 Consultation Records ({{ consultations | length }} Total)</h2>
+        <div class="table-responsive shadow-sm bg-white rounded">
+            <table class="table table-hover table-sm">
+                <thead class="table-primary">
                     <tr>
                         <th>ID</th>
                         <th>Date & Time</th>
@@ -61,9 +82,18 @@
                         <td>{{ c.date.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>{{ c.client.fullname if c.client else 'N/A' }}</td>
                         <td>{{ c.lawyer.fullname if c.lawyer else 'N/A' }}</td>
-                        <td>{{ c.price | round(2) | default('0.00', true) }}</td>
-                        <td><span class="badge bg-info">{{ c.status }}</span></td>
-                        <td><span class="badge {% if c.payment_status == 'paid' %}bg-success{% else %}bg-warning{% endif %}">{{ c.payment_status }}</span></td>
+                        <td><span class="text-info">${{ c.price | round(2) | default('0.00', true) }}</span></td>
+                        <td><span class="badge
+                            {% if c.status == 'completed' %}bg-success
+                            {% elif c.status == 'pending' %}bg-warning
+                            {% else %}bg-danger{% endif %}">
+                            {{ c.status }}
+                        </span></td>
+                        <td><span class="badge
+                            {% if c.payment_status == 'paid' %}bg-success
+                            {% else %}bg-warning{% endif %}">
+                            {{ c.payment_status }}
+                        </span></td>
                     </tr>
                     {% endfor %}
                 </tbody>
