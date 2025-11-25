@@ -14,6 +14,7 @@
 <section class="py-5">
     <div class="container">
 
+        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="mt-3">
@@ -40,7 +41,7 @@
                 </thead>
                 <tbody>
                     {% for user in users %}
-                    <tr>
+                    <tr id="user-row-{{ user.id }}">
                         <td>{{ user.id }}</td>
                         <td>{{ user.fullname }}</td>
                         <td>{{ user.email }}</td>
@@ -53,6 +54,7 @@
                         <td><span class="text-success fw-bold">${{ user.balance | round(2) | default('0.00', true) }}</span></td>
                         <td>{% if user.isAdmin %}<span class="badge bg-danger">Yes</span>{% else %}No{% endif %}</td>
                         <td>
+                            <!-- Кнопка "Change Details" ведет на существующий роут редактирования -->
                             <a href="{{ url_for('edit_profile', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">Change Details</a>
                         </td>
                     </tr>
@@ -63,7 +65,7 @@
 
         <h2 class="mb-3 mt-4 text-primary">📅 Consultation Records ({{ consultations | length }} Total)</h2>
         <div class="table-responsive shadow-sm bg-white rounded">
-            <table class="table table-hover table-sm">
+            <table class="table table-hover table-sm" id="consultations-table">
                 <thead class="table-primary">
                     <tr>
                         <th>ID</th>
@@ -73,27 +75,38 @@
                         <th>Price ($)</th>
                         <th>Status</th>
                         <th>Payment</th>
+                        <th>Actions</th> <!-- НОВЫЙ СТОЛБЕЦ -->
                     </tr>
                 </thead>
                 <tbody>
                     {% for c in consultations %}
-                    <tr>
+                    <tr id="consultation-row-{{ c.id }}">
                         <td>{{ c.id }}</td>
                         <td>{{ c.date.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>{{ c.client.fullname if c.client else 'N/A' }}</td>
                         <td>{{ c.lawyer.fullname if c.lawyer else 'N/A' }}</td>
                         <td><span class="text-info">${{ c.price | round(2) | default('0.00', true) }}</span></td>
-                        <td><span class="badge
+                        <td data-status-cell="{{ c.id }}"><span class="badge
                             {% if c.status == 'completed' %}bg-success
                             {% elif c.status == 'pending' %}bg-warning
+                            {% elif c.status == 'cancelled' %}bg-secondary
                             {% else %}bg-danger{% endif %}">
                             {{ c.status }}
                         </span></td>
-                        <td><span class="badge
+                        <td data-payment-cell="{{ c.id }}"><span class="badge
                             {% if c.payment_status == 'paid' %}bg-success
+                            {% elif c.payment_status == 'refunded' %}bg-info
                             {% else %}bg-warning{% endif %}">
                             {{ c.payment_status }}
                         </span></td>
+                        <td>
+                            <!-- КНОПКА ОТМЕНЫ -->
+                            {% if c.status != 'cancelled' %}
+                            <button class="btn btn-sm btn-outline-danger" onclick="cancelConsultation({{ c.id }})">Cancel</button>
+                            {% else %}
+                            <button class="btn btn-sm btn-secondary" disabled>Cancelled</button>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -101,4 +114,58 @@
         </div>
     </div>
 </section>
+
+<!-- JavaScript для обработки DELETE запроса -->
+<script>
+    function cancelConsultation(consultationId) {
+        // Замена alert() на window.confirm() для простого подтверждения
+        if (!window.confirm("Are you sure you want to cancel Consultation #" + consultationId + "? This will process a refund if paid.")) {
+            return; // Отмена действия
+        }
+
+        const url = `/api/consultations/${consultationId}`;
+
+        fetch(url, {
+            method: 'DELETE',
+            // Внимание: если вы используете CSRF защиту, здесь нужно добавить токен.
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message.includes('successfully cancelled')) {
+                // Успешная отмена: обновляем статус и цвет ячеек
+                const statusCell = document.querySelector(`[data-status-cell="${consultationId}"]`);
+                const paymentCell = document.querySelector(`[data-payment-cell="${consultationId}"]`);
+                const row = document.getElementById(`consultation-row-${consultationId}`);
+
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="badge bg-secondary">cancelled</span>';
+                }
+                if (paymentCell && data.refund_details.is_refunded) {
+                    paymentCell.innerHTML = '<span class="badge bg-info">refunded</span>';
+                }
+
+                // Деактивируем кнопку
+                const button = row.querySelector('button');
+                if(button) {
+                    button.disabled = true;
+                    button.textContent = 'Cancelled';
+                    button.classList.remove('btn-outline-danger');
+                    button.classList.add('btn-secondary');
+                }
+
+                // Выводим уведомление об успехе
+                alert(`Cancellation successful. Refund amount: $${data.refund_details.amount}.`);
+
+            } else {
+                // Сообщение об ошибке от API
+                alert('Cancellation Failed: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            alert('An error occurred while connecting to the server.');
+        });
+    }
+</script>
+
 {% endblock %}

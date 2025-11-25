@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from flask import Flask, redirect, render_template, request, session, url_for, flash, jsonify
 from dotenv import load_dotenv
 import os
@@ -1234,6 +1236,77 @@ def simple_admin_dashboard():
         users=all_users,
         consultations=all_consultations
     )
+
+
+@app.route('/api/consultations/<int:consultation_id>', methods=['DELETE'])
+def delete_consultation(consultation_id):
+    # 1. Проверка авторизации
+    user_id = session.get('user_id')
+    user_status = session.get('status')
+
+    if not user_id:
+        return jsonify({'message': 'Authorization required'}), HTTPStatus.UNAUTHORIZED
+
+    try:
+        # Загружаем консультацию и связанного клиента
+        consultation = db.session.query(Consultation).filter_by(id=consultation_id).first()
+
+        if not consultation:
+            return jsonify({'message': 'Consultation not found'}), HTTPStatus.NOT_FOUND
+
+        client = db.session.query(User).filter_by(id=consultation.client_id).first()
+
+        # 2. Проверка прав доступа: (Клиент, Юрист, или Администратор)
+        is_owner = (consultation.client_id == user_id)
+        is_lawyer = (consultation.lawyer_user_id == user_id)
+        is_admin = (user_status == 'Admin')
+
+        if not (is_owner or is_lawyer or is_admin):
+            return jsonify(
+                {'message': 'Permission denied. Only owner, lawyer, or admin can cancel.'}), HTTPStatus.FORBIDDEN
+
+        # 3. Проверка и логика отмены
+
+        if consultation.status == 'cancelled':
+            return jsonify({'message': 'Consultation is already cancelled'}), HTTPStatus.OK
+
+        refund_amount = Decimal(0)  # Инициализация как Decimal(0)
+
+        # Процесс Возврата: Если консультация была оплачена, возвращаем средства.
+        if consultation.payment_status == 'paid' and client:
+            # ИСПРАВЛЕНИЕ: Преобразуем цену консультации в Decimal, чтобы избежать TypeError
+            # Используем Decimal(str()) для надежной конвертации из float/string в Decimal
+            refund_amount = Decimal(str(consultation.price))
+
+            client.balance += refund_amount  # Теперь это Decimal += Decimal
+            consultation.payment_status = 'refunded'  # Меняем статус оплаты
+            print(f"Refund processed: {refund_amount} added to client {client.id} balance.")
+
+        # Обновляем статус консультации
+        consultation.status = 'cancelled'
+
+        # Освобождаем слот
+        if consultation.time_slot:
+            consultation.time_slot.status = 'available'
+            consultation.time_slot_id = None
+
+        db.session.commit()
+
+        # 4. Ответ
+        return jsonify({
+            'message': 'Consultation successfully cancelled.',
+            'refund_details': {
+                # ВОЗВРАЩАЕМ КАК СТРОКУ, Т.К. JSON НЕ СЕРИАЛИЗУЕТ DECIMAL НАПРЯМУЮ
+                'amount': str(refund_amount),
+                'is_refunded': refund_amount > Decimal(0)
+            },
+            'new_status': 'cancelled'
+        }), HTTPStatus.OK
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error during consultation cancellation: {e}")
+        return jsonify({'message': 'Internal server error', 'details': str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 with app.app_context():
