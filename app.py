@@ -569,12 +569,31 @@ def get_availability(lawyer_id):
 
 
 @app.route('/dashboard/<int:user_id>')
-@login_required
+# @login_required # Assuming this decorator is defined
 def user_dashboard(user_id):
-    # Проверка, что пользователь просматривает свой дашборд
+    # 1. Проверка, что пользователь просматривает свой дашборд
     if session.get('user_id') != user_id and session.get('status') != 'Admin':
         flash('You are not authorized to view this dashboard.', 'danger')
         return redirect(url_for('index'))
+
+    # --- ДОБАВЛЕНИЕ ЛОГИКИ ОБНОВЛЕНИЯ БАЛАНСА В СЕССИИ ---
+
+    # 1. Получаем пользователя из базы данных
+    current_user = None
+    try:
+        current_user = db.session.query(User).filter_by(id=user_id).first()
+    except Exception as e:
+        print(f"Database error fetching user {user_id}: {e}")
+        flash("Internal server error fetching user data.", "danger")
+        return redirect(url_for('index'))
+
+    if current_user:
+        # 2. Обновляем 'balance' в сессии свежим значением из БД
+        # Баланс хранится как Decimal, преобразуем его в строку для удобного хранения в сессии
+        session['balance'] = str(current_user.balance)
+
+        # NOTE: Если нужно, здесь можно обновить и другие поля
+    # -----------------------------------------------------------
 
     # Получаем все консультации, где текущий пользователь - клиент
     client_consultations = Consultation.query.filter_by(client_id=user_id).all()
@@ -582,27 +601,22 @@ def user_dashboard(user_id):
     # Устанавливаем текущее время в UTC для сравнения
     now = datetime.now(timezone.utc)
 
-    # --- ДОБАВЛЕНИЕ ЛОГИКИ ЗАВЕРШЕНИЯ ПО ИСТЕЧЕНИИ 1 ЧАСА ---
+    # --- ЛОГИКА СОРТИРОВКИ И ОПРЕДЕЛЕНИЯ СТАТУСА КОНСУЛЬТАЦИЙ ---
 
     # 1. Предстоящие (Upcoming)
-    # Если статус не 'completed'/'cancelled' И (дата/время + 1 час) в будущем
     upcoming_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status not in ['completed', 'cancelled'] and \
            c.date and (c.date.replace(tzinfo=timezone.utc) + timedelta(hours=1)) > now
-        # Проверяем, что (время начала + 1 час) еще не прошло
     ]
 
     # 2. Завершенные (Completed)
-    # Если статус 'completed' ИЛИ (статус не 'cancelled' И (дата/время + 1 час) прошло)
     completed_meetings = [
         c.to_dict(include_lawyer=True) for c in client_consultations
         if c.status == 'completed' or \
            (c.status not in ['cancelled'] and c.date and (
-                       c.date.replace(tzinfo=timezone.utc) + timedelta(hours=1)) <= now)
-        # Консультация считается завершенной, если прошел час после ее начала
+                   c.date.replace(tzinfo=timezone.utc) + timedelta(hours=1)) <= now)
     ]
-    # -----------------------------------------------------------
 
     # 3. Отмененные
     cancelled_meetings = [
@@ -615,8 +629,9 @@ def user_dashboard(user_id):
         upcoming_meetings=upcoming_meetings,
         completed_meetings=completed_meetings,
         cancelled_meetings=cancelled_meetings,
+        # Передаем обновленный баланс во фронтенд (если нужно отобразить его отдельно от сессии)
+        user_balance=session.get('balance', '0.00')
     )
-
 
 @app.route("/add-review/<int:consultation_id>", methods=['POST'])
 @login_required
