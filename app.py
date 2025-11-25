@@ -1205,6 +1205,37 @@ def update_slot_status():
         # app.logger.error(f"DB commit error updating slot {slot_id}: {e}")
         return jsonify({'success': False, 'message': 'A server error occurred during update.'}), 500
 
+
+
+@app.route('/admin-panel')
+def simple_admin_dashboard():
+    # 1. СТРОГАЯ ПРОВЕРКА СТАТУСА В СЕССИИ
+    if session.get('status') != 'Admin':
+        flash('Доступ запрещен. Войдите как администратор.', 'danger')
+        return redirect(url_for('login')) # Или на любую другую страницу
+
+    # 2. ЕСЛИ АДМИН, ПРОДОЛЖАЕМ ЗАГРУЗКУ ДАННЫХ
+    try:
+        # Получаем все данные
+        all_users = db.session.query(User).all()
+        all_consultations = db.session.query(Consultation).all()
+
+        # Сортируем консультации по дате (свежие сверху)
+        all_consultations.sort(key=lambda c: c.date, reverse=True)
+
+    except Exception as e:
+        print(f"Error fetching admin data: {e}")
+        flash('Ошибка при загрузке данных администратора.', 'danger')
+        # Если данные не загрузились, перенаправляем админа на его дашборд
+        return redirect(url_for('user_dashboard', user_id=session.get('user_id')))
+
+    return render_template(
+        'admin_panel.html',
+        users=all_users,
+        consultations=all_consultations
+    )
+
+
 with app.app_context():
     db.create_all()
     print("DB check: db.create_all() executed.")

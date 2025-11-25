@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Simple Admin View{% endblock %}
+
+{% block content %}
+<header class="py-4 bg-light border-bottom">
+    <div class="container">
+        <h1 class="fw-bold text-dark">Simple Admin Dashboard</h1>
+        <p class="lead text-muted">Read-only overview of core data for project preview.</p>
+    </div>
+</header>
+
+<section class="py-5">
+    <div class="container">
+        <h2 class="mb-4 text-primary">👥 All Users ({{ users | length }})</h2>
+        <div class="table-responsive mb-5">
+            <table class="table table-striped table-bordered table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Full Name</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Balance</th>
+                        <th>Is Admin?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.id }}</td>
+                        <td>{{ user.fullname }}</td>
+                        <td>{{ user.email }}</td>
+                        <td><span class="badge bg-secondary">{{ user.status }}</span></td>
+                        <td>${{ user.balance | round(2) | default('0.00', true) }}</td>
+                        <td>{% if user.isAdmin %}<span class="badge bg-danger">Yes</span>{% else %}No{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2 class="mb-4 text-primary">📅 All Consultations ({{ consultations | length }})</h2>
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered table-sm">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Date & Time</th>
+                        <th>Client</th>
+                        <th>Lawyer</th>
+                        <th>Price ($)</th>
+                        <th>Status</th>
+                        <th>Payment</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in consultations %}
+                    <tr>
+                        <td>{{ c.id }}</td>
+                        <td>{{ c.date.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ c.client.fullname if c.client else 'N/A' }}</td>
+                        <td>{{ c.lawyer.fullname if c.lawyer else 'N/A' }}</td>
+                        <td>{{ c.price | round(2) | default('0.00', true) }}</td>
+                        <td><span class="badge bg-info">{{ c.status }}</span></td>
+                        <td><span class="badge {% if c.payment_status == 'paid' %}bg-success{% else %}bg-warning{% endif %}">{{ c.payment_status }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
