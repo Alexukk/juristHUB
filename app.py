@@ -725,74 +725,94 @@ def logout():
     return render_template('logout.html')
 
 
-@app.route('/edit-profile/<int:user_id>', methods=['POST', 'GET'])
+@app.route('/edit_profile/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 def edit_profile(user_id):
-    # 1. Проверка прав доступа: Пользователь может редактировать только свой профиль или быть Админом
-    if session.get('user_id') != user_id and session.get('status') != 'Admin':
-        flash("You can't edit details of another user.", "danger")
-        return redirect(url_for('index'))
+    current_user_id = session.get('user_id')
 
-    user = db.session.get(User, user_id)
-    if not user:
+    # Загружаем профиль, который нужно редактировать
+    user_to_edit = db.session.get(User, user_id)
+
+    if not user_to_edit:
         flash('User not found.', 'danger')
         return redirect(url_for('index'))
 
-    # --- GET-запрос: Рендеринг шаблона ---
-    if request.method == 'GET':
-        # Передаем объект user в шаблон для заполнения полей
-        return render_template('edit-profile.html', user=user)
+    # ПРОВЕРКА АВТОРИЗАЦИИ:
+    # 1. Пользователь может редактировать только свой профиль
+    # 2. АДМИН может редактировать любой профиль
+    is_admin = session.get('status') == 'Admin'
 
-        # --- POST-запрос: Обработка формы ---
-    else:
-        # ОБЩИЕ ПОЛЯ (для всех пользователей)
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+    if not is_admin and user_to_edit.id != current_user_id:
+        flash('You are not authorized to edit this profile.', 'danger')
+        return redirect(url_for('index'))
 
+    if request.method == 'POST':
         try:
-            user.username = username
-            user.email = email
+            # 1. CORE FIELDS
+            user_to_edit.username = request.form.get('username')
+            user_to_edit.email = request.form.get('email')
 
-            if password:
-                if password != confirm_password:
-                    flash('New password and confirmation do not match.', 'warning')
+            # 2. PROFESSIONAL (LAWYER) DATA - Обновляем только если пользователь - юрист или админ
+            if user_to_edit.status == 'Lawyer' or is_admin:
+
+                price_str = request.form.get('price')
+                if price_str:
+                    # !!! КРИТИЧЕСКИЙ ФИКС ДЛЯ SQLite/Decimal:
+                    # Преобразуем строковое значение цены в float, чтобы избежать ошибки InterfaceError
+                    # Decimal('92') -> float(92.0) -> успешно сохраняется в БД
+                    try:
+                        user_to_edit.price = float(price_str)
+                    except ValueError:
+                        flash('Invalid price format. Please enter a number.', 'danger')
+                        return redirect(url_for('edit_profile', user_id=user_id))
+                else:
+                    user_to_edit.price = None  # Если пусто, устанавливаем None
+
+                user_to_edit.description = request.form.get('description')
+                user_to_edit.zoom_link = request.form.get('zoom_link')
+                user_to_edit.office_address = request.form.get('office_address')
+
+            # 3. ADMINISTRATOR CONTROL BLOCK - Только если текущий пользователь является Админом
+            if is_admin:
+                user_to_edit.status = request.form.get('admin_status')
+
+                # Checkboxes: True if 'on', False if None
+                user_to_edit.isAdmin = True if request.form.get('isAdmin') == 'on' else False
+                user_to_edit.isOnMain = True if request.form.get('isOnMain') == 'on' else False
+
+            # 4. CHANGE PASSWORD
+            new_password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
+
+            if new_password:
+                if new_password != confirm_password:
+                    flash('New password and confirmation do not match.', 'danger')
                     return redirect(url_for('edit_profile', user_id=user_id))
 
-                user.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+                # Хэшируем и сохраняем новый пароль
+                user_to_edit.password_hash = generate_password_hash(new_password)
 
-            if user.status == 'Lawyer':
-                new_price = request.form.get('price', type=float)
-                new_description = request.form.get('description')
-                # НОВЫЕ ПОЛЯ: Zoom Link и Office Address
-                new_zoom_link = request.form.get('zoom_link')
-                new_office_address = request.form.get('office_address')
-
-                if new_price is None or new_price <= 0:
-                    flash('Consultation Price must be a positive number.', 'warning')
-                    return redirect(url_for('edit_profile', user_id=user_id))
-
-                user.price = new_price
-                user.description = new_description
-                user.zoom_link = new_zoom_link  # Сохранение новой ссылки Zoom
-                user.office_address = new_office_address  # Сохранение нового адреса офиса
-
+            # КОММИТ
             db.session.commit()
-
-            session['email'] = user.email
-            session['username'] = user.username
-
-            flash('Your account details have been successfully updated! ✨', 'success')
+            flash('Profile updated successfully!', 'success')
+            return redirect(url_for('user_dashboard', user_id=user_id))
 
         except Exception as e:
             db.session.rollback()
-            print('An error occured while changing profile info: \n', e)
-            flash('An error occurred while updating the profile.', 'danger')
+            # Логируем полную ошибку для отладки
+            print(f"SQLAlchemy Error during profile update: {e}")
+            flash(f'An error occurred while changing profile info: Check logs for details.', 'danger')
             return redirect(url_for('edit_profile', user_id=user_id))
 
-    return redirect(url_for('user_dashboard', user_id=user_id))
+        except Exception as e:
+            db.session.rollback()
+            print(f"General error during profile update: {e}")
+            flash('An unexpected error occurred. Please try again.', 'danger')
+            return redirect(url_for('edit_profile', user_id=user_id))
 
+    # GET-запрос: Рендеринг страницы редактирования
+    # Передаем объект user_to_edit, чтобы шаблон мог заполнить поля
+    return render_template('edit-profile.html', user=user_to_edit)
 
 
 
