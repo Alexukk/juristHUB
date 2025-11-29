@@ -571,14 +571,13 @@ def get_availability(lawyer_id):
 @app.route('/dashboard/<int:user_id>')
 # @login_required # Assuming this decorator is defined
 def user_dashboard(user_id):
-    # 1. Проверка, что пользователь просматривает свой дашборд
-    if session.get('user_id') != user_id and session.get('status') != 'Admin':
+    if session.get('user_id') != user_id:
         flash('You are not authorized to view this dashboard.', 'danger')
         return redirect(url_for('index'))
 
-    # --- ДОБАВЛЕНИЕ ЛОГИКИ ОБНОВЛЕНИЯ БАЛАНСА В СЕССИИ ---
+    if session.get('status') == 'Admin':
+        return redirect(url_for("simple_admin_dashboard"))
 
-    # 1. Получаем пользователя из базы данных
     current_user = None
     try:
         current_user = db.session.query(User).filter_by(id=user_id).first()
